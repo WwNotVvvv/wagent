@@ -17,7 +17,7 @@ func TestCredentialFromEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-test-key-from-env" {
-		t.Errorf("expected env key, got %s", key)
+		t.Error("expected env key")
 	}
 }
 
@@ -34,7 +34,7 @@ func TestCredentialEnvTakesPrecedence(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-from-env" {
-		t.Errorf("env should take precedence, got %s", key)
+		t.Error("env should take precedence")
 	}
 }
 
@@ -85,7 +85,7 @@ func TestCredentialSetAndClear(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-test-keychain" {
-		t.Errorf("expected 'sk-test-keychain', got %s", key)
+		t.Error("expected key after set")
 	}
 
 	err = cs.Clear()
@@ -140,7 +140,7 @@ func TestCredentialCrossInstancePersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-persistence-test" {
-		t.Errorf("key not persisted across instances: got %s, expected sk-persistence-test", key)
+		t.Error("key not persisted across instances")
 	}
 }
 
@@ -157,7 +157,7 @@ func TestCredentialEnvOverridesKeychain(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-from-env-v2" {
-		t.Errorf("env should override keychain: got %s, expected sk-from-env-v2", key)
+		t.Error("env should override keychain")
 	}
 }
 
@@ -177,7 +177,7 @@ func TestCredentialKeychainOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key != "sk-keychain-only" {
-		t.Errorf("expected keychain-only key, got %s", key)
+		t.Error("expected keychain-only key")
 	}
 }
 
@@ -200,6 +200,6 @@ func TestCredentialRealUserKeyUntouched(t *testing.T) {
 		t.Error("real user key was deleted during test run")
 	}
 	if realKey != realKeyAfter {
-		t.Errorf("real user key was modified: before=%q after=%q", realKey, realKeyAfter)
+		t.Error("real user credential was modified during test run")
 	}
 }
