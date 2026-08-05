@@ -120,3 +120,61 @@ func TestCredentialStatusNoKeychain(t *testing.T) {
 		t.Log("note: keychain may have a stored key")
 	}
 }
+
+func TestCredentialCrossInstancePersistence(t *testing.T) {
+	os.Unsetenv("WAGENT_API_KEY")
+	cs1 := NewCredentialStore()
+	cs1.Clear()
+
+	err := cs1.Set("sk-persistence-test")
+	if err != nil {
+		t.Skipf("keychain not available: %v", err)
+	}
+	defer cs1.Clear()
+
+	cs2 := NewCredentialStore()
+	key, err := cs2.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != "sk-persistence-test" {
+		t.Errorf("key not persisted across instances: got %s, expected sk-persistence-test", key)
+	}
+}
+
+func TestCredentialEnvOverridesKeychain(t *testing.T) {
+	os.Setenv("WAGENT_API_KEY", "sk-from-env-v2")
+	defer os.Unsetenv("WAGENT_API_KEY")
+
+	cs := NewCredentialStore()
+	cs.Set("sk-from-keychain-v2")
+	defer cs.Clear()
+
+	key, err := cs.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != "sk-from-env-v2" {
+		t.Errorf("env should override keychain: got %s, expected sk-from-env-v2", key)
+	}
+}
+
+func TestCredentialKeychainOnly(t *testing.T) {
+	os.Unsetenv("WAGENT_API_KEY")
+	cs := NewCredentialStore()
+	cs.Clear()
+
+	err := cs.Set("sk-keychain-only")
+	if err != nil {
+		t.Skipf("keychain not available: %v", err)
+	}
+	defer cs.Clear()
+
+	key, err := cs.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != "sk-keychain-only" {
+		t.Errorf("expected keychain-only key, got %s", key)
+	}
+}

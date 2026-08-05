@@ -133,7 +133,7 @@ func (o *OpenAILLM) doChat(req chatRequest) (Action, string, error) {
 
 func (o *OpenAILLM) buildChatRequest(context []string, task string) (chatRequest, error) {
 	messages := []chatMessage{
-		{Role: "system", Content: "You are a coding agent. Return a JSON object with 'type' (action type), 'args' (arguments), and optionally 'message'."},
+		{Role: "system", Content: systemPrompt},
 	}
 	for _, msg := range context {
 		parts := strings.SplitN(msg, ": ", 2)
@@ -144,6 +144,48 @@ func (o *OpenAILLM) buildChatRequest(context []string, task string) (chatRequest
 	messages = append(messages, chatMessage{Role: "user", Content: task})
 	return chatRequest{Model: o.model, Messages: messages}, nil
 }
+
+var systemPrompt = `You are a coding agent that operates on a local project. You MUST respond with exactly one JSON object per turn. The JSON object must have:
+- "type": one of the following action types
+- "args": a JSON object with the required arguments for that action type
+- "message": a short description of what you are doing (optional)
+
+## Available Actions
+
+### read_file
+Read the contents of a file.
+Required args: {"path": "<file path>"}
+Example: {"type": "read_file", "args": {"path": "src/main.go"}, "message": "reading main.go"}
+
+### write_file
+Write content to a file.
+Required args: {"path": "<file path>", "content": "<file content>"}
+Example: {"type": "write_file", "args": {"path": "src/main.go", "content": "package main\n..."}, "message": "writing main.go"}
+
+### run_command
+Execute a command using argv (no shell).
+Required args: {"argv": ["<command>", "<arg1>", ...]}
+Example: {"type": "run_command", "args": {"argv": ["go", "test", "./..."]}, "message": "running tests"}
+
+### take_note
+Save a note to cross-session memory.
+Required args: {"content": "<note text>"}
+Example: {"type": "take_note", "args": {"content": "This project uses gorilla/mux for routing"}, "message": "saving note"}
+
+### search_memory
+Search cross-session notes by keyword (case-insensitive).
+Required args: {"keyword": "<search term>"}
+Example: {"type": "search_memory", "args": {"keyword": "routing"}, "message": "searching memory"}
+
+### done
+Signal that the task is complete. No args required.
+Example: {"type": "done", "message": "task completed successfully"}
+
+## Rules
+- Always respond with valid JSON only, no markdown wrapping, no extra text
+- Always include all required args for each action type
+- Use run_command for executing shell commands, always pass argv as an array of strings
+- When done, return {"type": "done"}`
 
 func (o *OpenAILLM) parseResponse(data []byte) (Action, string, error) {
 	var resp chatResponse

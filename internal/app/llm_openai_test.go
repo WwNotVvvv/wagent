@@ -1,4 +1,4 @@
-package app
+﻿package app
 
 import (
 	"encoding/json"
@@ -153,4 +153,108 @@ func TestOpenAILLMChatTimeout(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
+}
+
+func TestSystemPromptCoversAllActions(t *testing.T) {
+	for _, actionType := range []string{
+		"read_file", "write_file", "run_command", "take_note", "search_memory", "done",
+	} {
+		if !strings.Contains(systemPrompt, actionType) {
+			t.Errorf("system prompt missing action type: %s", actionType)
+		}
+	}
+}
+
+func TestParseRealResponseReadFile(t *testing.T) {
+	llm := NewOpenAILLM("sk-test", "gpt-4o", "https://api.openai.com/v1")
+	raw := `{"type": "read_file", "args": {"path": "main.go"}, "message": "reading main.go"}`
+	action, msg, err := llm.parseResponse([]byte(`{"choices":[{"message":{"content":"` + escapeJSON(raw) + `"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Type != "read_file" {
+		t.Errorf("expected read_file, got %s", action.Type)
+	}
+	path, ok := action.Args["path"].(string)
+	if !ok || path != "main.go" {
+		t.Errorf("expected path=main.go, got args=%v", action.Args)
+	}
+	if msg != "reading main.go" {
+		t.Errorf("expected 'reading main.go', got %s", msg)
+	}
+}
+
+func TestParseRealResponseWriteFile(t *testing.T) {
+	raw := `{"type": "write_file", "args": {"path": "test.go", "content": "package main"}, "message": "writing test.go"}`
+	action, err := ParseAction(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Type != "write_file" {
+		t.Errorf("expected write_file, got %s", action.Type)
+	}
+	if action.Args["content"] != "package main" {
+		t.Errorf("expected content, got %v", action.Args["content"])
+	}
+}
+
+func TestParseRealResponseRunCommand(t *testing.T) {
+	raw := `{"type": "run_command", "args": {"argv": ["go", "test", "./..."]}, "message": "running tests"}`
+	action, err := ParseAction(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Type != "run_command" {
+		t.Errorf("expected run_command, got %s", action.Type)
+	}
+}
+
+func TestParseRealResponseSearchMemory(t *testing.T) {
+	raw := `{"type": "search_memory", "args": {"keyword": "logger"}, "message": "searching"}`
+	action, err := ParseAction(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Type != "search_memory" {
+		t.Errorf("expected search_memory, got %s", action.Type)
+	}
+	if action.Args["keyword"] != "logger" {
+		t.Errorf("expected keyword=logger, got %v", action.Args["keyword"])
+	}
+}
+
+func TestParseRealResponseMissingArgsRejected(t *testing.T) {
+	raw := `{"type": "read_file", "args": {}}`
+	_, err := ParseAction(raw)
+	if err == nil {
+		t.Fatal("expected error for missing required args")
+	}
+}
+
+func TestParseRealResponseNilArgsRejected(t *testing.T) {
+	raw := `{"type": "read_file"}`
+	_, err := ParseAction(raw)
+	if err == nil {
+		t.Fatal("expected error for missing args")
+	}
+}
+
+func TestParseRealResponseDone(t *testing.T) {
+	raw := `{"type": "done", "message": "all tests pass"}`
+	action, err := ParseAction(raw); msg := action.Message
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.Type != "done" {
+		t.Errorf("expected done, got %s", action.Type)
+	}
+	if msg != "all tests pass" {
+		t.Errorf("expected 'all tests pass', got %s", msg)
+	}
+}
+
+func escapeJSON(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }

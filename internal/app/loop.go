@@ -8,7 +8,6 @@ import (
 const maxParseRetries = 3
 
 func (h *Harness) Run(task string) (string, error) {
-	h.ctx.AddSystem("You are a coding agent. Return a JSON object with 'type', 'args', and optionally 'message'.")
 	h.ctx.AddUser(task)
 
 	parseErrors := 0
