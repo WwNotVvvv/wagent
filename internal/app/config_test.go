@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,6 +49,32 @@ func TestLoadConfigMissingFile(t *testing.T) {
 	_, err := LoadConfig("/nonexistent/path.toml")
 	if err == nil {
 		t.Error("expected error for missing file")
+	}
+}
+
+func TestLoadConfigMissingFileWrappedError(t *testing.T) {
+	_, err := LoadConfig("/nonexistent/path.toml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("errors.Is(err, os.ErrNotExist) should be true, got false: %v", err)
+	}
+}
+
+func TestLoadConfigOrDefaultMissingFile(t *testing.T) {
+	cfg, err := LoadConfigOrDefault("/nonexistent/path.toml")
+	if err != nil {
+		t.Fatalf("expected nil error for missing file, got %v", err)
+	}
+	if cfg.Agent.MaxSteps != 25 {
+		t.Errorf("expected default max_steps 25, got %d", cfg.Agent.MaxSteps)
+	}
+	if cfg.Policy.Default != "ask" {
+		t.Errorf("expected default policy ask, got %s", cfg.Policy.Default)
+	}
+	if cfg.Agent.StepTimeout != "60s" {
+		t.Errorf("expected default step_timeout 60s, got %s", cfg.Agent.StepTimeout)
 	}
 }
 

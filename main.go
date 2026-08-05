@@ -34,16 +34,10 @@ func main() {
 	}
 	task := strings.Join(flag.Args(), " ")
 
-	cfg, err := app.LoadConfig(*configFlag)
+cfg, err := app.LoadConfigOrDefault(*configFlag)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// No config file — use defaults
-			cfg = &app.Config{}
-			cfg.SetDefaults()
-		} else {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	var llm app.LLM

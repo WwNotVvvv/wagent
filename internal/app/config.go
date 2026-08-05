@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -21,6 +22,19 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func LoadConfigOrDefault(path string) (*Config, error) {
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			cfg = &Config{}
+			cfg.SetDefaults()
+			return cfg, nil
+		}
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func validateConfig(cfg *Config) error {
