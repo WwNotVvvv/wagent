@@ -1,0 +1,29 @@
+[llm]
+provider = "openai"
+model = "gpt-4o"
+base_url = "https://api.openai.com/v1"
+
+[agent]
+max_steps = 25
+step_timeout = "60s"
+total_timeout = "600s"
+verify_command = ["go", "test", "./..."]
+work_dir = "."
+
+[storage]
+trace_dir = "~/.wagent/traces"
+memory_dir = "~/.wagent/memory"
+
+[policy]
+default = "ask"
+
+[policy.commands]
+deny = ["rm -rf", "dd if=", "> /dev/", "format", "del /f /s"]
+ask = ["git push", "git commit --amend", "drop table", "npm publish"]
+allow = ["git status", "git diff", "ls", "go test", "go build", "go vet", "go fmt"]
+
+[policy.paths]
+deny = ["/etc/", "~/.ssh/"]
+
+[policy.hitl]
+timeout = "120s"
