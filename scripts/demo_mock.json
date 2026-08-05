@@ -1,0 +1,6 @@
+[
+  {"action": {"type": "run_command", "args": {"argv": ["git", "status"]}}, "message": "checking status"},
+  {"action": {"type": "run_command", "args": {"argv": ["rm", "-rf", "node_modules"]}}, "message": "cleaning"},
+  {"action": {"type": "run_command", "args": {"argv": ["ls"]}}, "message": "listing"},
+  {"action": {"type": "done", "args": {}}, "message": "all done"}
+]
