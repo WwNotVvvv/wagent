@@ -1,0 +1,23 @@
+stages:
+  - test
+  - build
+
+unit-test:
+  stage: test
+  image: golang:1.23
+  script:
+    - go mod tidy
+    - go test ./... -v -count=1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+build:
+  stage: build
+  image: golang:1.23
+  script:
+    - go build -o wagent .
+  artifacts:
+    paths:
+      - wagent
+  rules:
+    - if: $CI_COMMIT_TAG
