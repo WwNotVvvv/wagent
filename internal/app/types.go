@@ -81,6 +81,10 @@ type Config struct {
 	Policy  PolicyConfig  `toml:"policy"`
 }
 
+func (c *Config) Validate() error {
+	return nil
+}
+
 func (c *Config) SetDefaults() {
 	if c.Policy.Default == "" {
 		c.Policy.Default = "ask"
