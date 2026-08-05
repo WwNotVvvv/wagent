@@ -24,7 +24,8 @@ func TestCredentialEnvTakesPrecedence(t *testing.T) {
 	defer os.Unsetenv("WAGENT_API_KEY")
 
 	cs := NewCredentialStore()
-	cs.Set("sk-from-keychain") // may fail if keychain unavailable; ignore
+	cs.Set("sk-from-keychain")
+	cs.Clear()
 
 	key, err := cs.Get()
 	if err != nil {
@@ -33,7 +34,6 @@ func TestCredentialEnvTakesPrecedence(t *testing.T) {
 	if key != "sk-from-env" {
 		t.Errorf("env should take precedence, got %s", key)
 	}
-	cs.Clear()
 }
 
 func TestCredentialStatus(t *testing.T) {
