@@ -1,10 +1,14 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type LLM interface {
@@ -56,6 +60,7 @@ type OpenAILLM struct {
 	apiKey  string
 	model   string
 	baseURL string
+	client  *http.Client
 }
 
 type chatRequest struct {
@@ -81,15 +86,49 @@ type chatResponse struct {
 }
 
 func NewOpenAILLM(apiKey, model, baseURL string) *OpenAILLM {
-	return &OpenAILLM{apiKey: apiKey, model: model, baseURL: baseURL}
+	return &OpenAILLM{
+		apiKey:  apiKey,
+		model:   model,
+		baseURL: baseURL,
+		client:  &http.Client{Timeout: 120 * time.Second},
+	}
 }
 
 func (o *OpenAILLM) Chat(context []string, task string) (Action, string, error) {
-	_, err := o.buildChatRequest(context, task)
+	req, err := o.buildChatRequest(context, task)
 	if err != nil {
 		return Action{}, "", err
 	}
-	return Action{}, "", nil
+	return o.doChat(req)
+}
+
+func (o *OpenAILLM) doChat(req chatRequest) (Action, string, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return Action{}, "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := strings.TrimRight(o.baseURL, "/") + "/chat/completions"
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return Action{}, "", fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+
+	client := o.client
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return Action{}, "", fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Action{}, "", fmt.Errorf("read response: %w", err)
+	}
+
+	return o.parseResponse(respBody)
 }
 
 func (o *OpenAILLM) buildChatRequest(context []string, task string) (chatRequest, error) {
