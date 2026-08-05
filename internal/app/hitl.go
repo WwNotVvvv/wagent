@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -19,12 +20,11 @@ func (h *HITL) Prompt(a Action, timeout time.Duration) bool {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		input, err := reader.ReadString('\n')
-		if err != nil || len(input) < 2 {
+		if err != nil {
 			result <- false
 			return
 		}
-		input = input[:len(input)-1]
-		result <- (input == "y" || input == "Y")
+		result <- parseHITLInput(input)
 	}()
 
 	select {
@@ -39,4 +39,9 @@ func (h *HITL) Prompt(a Action, timeout time.Duration) bool {
 		fmt.Println("[HITL] Timeout — rejected")
 		return false
 	}
+}
+
+func parseHITLInput(input string) bool {
+	cleaned := strings.TrimSpace(input)
+	return cleaned == "y" || cleaned == "Y"
 }
