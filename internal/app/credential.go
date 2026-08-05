@@ -13,17 +13,24 @@ import (
 const serviceName = "wagent"
 const accountName = "api_key"
 
-type CredentialStore struct{}
+type CredentialStore struct {
+	service string
+	account string
+}
 
 func NewCredentialStore() *CredentialStore {
-	return &CredentialStore{}
+	return &CredentialStore{service: serviceName, account: accountName}
+}
+
+func newTestCredentialStore() *CredentialStore {
+	return &CredentialStore{service: "wagent-test", account: "api_key_test"}
 }
 
 func (c *CredentialStore) Get() (string, error) {
 	if key := os.Getenv("WAGENT_API_KEY"); key != "" {
 		return key, nil
 	}
-	key, err := keyring.Get(serviceName, accountName)
+	key, err := keyring.Get(c.service, c.account)
 	if err == nil && key != "" {
 		return key, nil
 	}
@@ -35,14 +42,14 @@ func (c *CredentialStore) Set(key string) error {
 	if key == "" {
 		return errors.New("cannot set empty API Key")
 	}
-	return keyring.Set(serviceName, accountName, key)
+	return keyring.Set(c.service, c.account, key)
 }
 
 func (c *CredentialStore) Status() (bool, error) {
 	if os.Getenv("WAGENT_API_KEY") != "" {
 		return true, nil
 	}
-	key, err := keyring.Get(serviceName, accountName)
+	key, err := keyring.Get(c.service, c.account)
 	if err != nil {
 		return false, nil
 	}
@@ -50,7 +57,7 @@ func (c *CredentialStore) Status() (bool, error) {
 }
 
 func (c *CredentialStore) Clear() error {
-	return keyring.Delete(serviceName, accountName)
+	return keyring.Delete(c.service, c.account)
 }
 
 func (c *CredentialStore) InteractivePrompt() (string, error) {
