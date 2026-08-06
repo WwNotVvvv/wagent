@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -159,4 +161,56 @@ func TestLoopToolExecution(t *testing.T) {
 	if result != "done" {
 		t.Errorf("expected 'done', got %s", result)
 	}
+}
+
+func TestLoopReadFileFeedback(t *testing.T) {
+	dir := t.TempDir()
+	testFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(testFile, []byte("hello from test file"), 0644)
+
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10, WorkDir: dir},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "read_file", Args: map[string]any{"path": testFile}}, "reading file")
+	llm.AddResponse(Action{Type: "done"}, "done")
+
+	h := &Harness{
+		cfg:   cfg,
+		llm:   llm,
+		guard: &Guardrail{},
+		tools: NewToolRegistry(),
+		verif: &Verifier{},
+		ctx:   NewContext(),
+	}
+
+	result, err := h.Run("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "done" {
+		t.Errorf("expected 'done', got %s", result)
+	}
+
+	messages := h.ctx.Messages()
+	foundContent := false
+	for _, msg := range messages {
+		if strContains(msg, "hello from test file") {
+			foundContent = true
+			break
+		}
+	}
+	if !foundContent {
+		t.Error("read_file feedback should contain file content")
+	}
+}
+
+func strContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

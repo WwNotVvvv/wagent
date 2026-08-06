@@ -78,7 +78,7 @@ func (h *Harness) Run(task string) (string, error) {
 			}
 			continue
 		}
-		record.ToolResult = result
+		record.ToolResult = truncateToolResult(action, result)
 		parseErrors = 0
 
 		feedback := formatToolResult(action, result)
@@ -122,7 +122,10 @@ func formatToolResult(a Action, result map[string]any) string {
 		return summary
 	case "read_file":
 		content, _ := result["content"].(string)
-		return fmt.Sprintf("Read file: %d bytes", len(content))
+		if content == "" {
+			return "Read file: empty"
+		}
+		return fmt.Sprintf("Read file: %d bytes\n%s", len(content), truncate(content, 4000))
 	case "write_file":
 		path, _ := result["written"].(string)
 		return fmt.Sprintf("Written to: %s", path)
@@ -142,4 +145,23 @@ func parseDuration(s string, fallbackSec int) time.Duration {
 		return time.Duration(fallbackSec) * time.Second
 	}
 	return d
+}
+
+func truncateToolResult(a Action, result map[string]any) map[string]any {
+	if a.Type != "read_file" {
+		return result
+	}
+	content, ok := result["content"].(string)
+	if !ok {
+		return result
+	}
+	out := make(map[string]any, len(result))
+	for k, v := range result {
+		if k == "content" {
+			out[k] = truncate(content, 4000)
+		} else {
+			out[k] = v
+		}
+	}
+	return out
 }
