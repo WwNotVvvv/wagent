@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -213,4 +214,61 @@ func strContains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+type errorMockLLM struct {
+	responses []struct {
+		action  Action
+		message string
+		err     error
+	}
+	index int
+}
+
+func (m *errorMockLLM) Chat(context []string, task string) (Action, string, error) {
+	if m.index >= len(m.responses) {
+		return Action{}, "", fmt.Errorf("mock exhausted")
+	}
+	r := m.responses[m.index]
+	m.index++
+	return r.action, r.message, r.err
+}
+
+func TestLoopRecoverFromParseError(t *testing.T) {
+	dir := t.TempDir()
+	testFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(testFile, []byte("hello"), 0644)
+
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10, WorkDir: dir},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+
+	mock := &errorMockLLM{}
+	mock.responses = []struct {
+		action  Action
+		message string
+		err     error
+	}{
+		{action: Action{Type: "read_file", Args: map[string]any{"path": testFile}}, message: "", err: nil},
+		{action: Action{}, message: "", err: fmt.Errorf("response is not JSON: expected '{' or '[' but got \"# wagent\"")},
+		{action: Action{Type: "done"}, message: "recovered", err: nil},
+	}
+
+	h := &Harness{
+		cfg:   cfg,
+		llm:   mock,
+		guard: &Guardrail{},
+		tools: NewToolRegistry(),
+		verif: &Verifier{},
+		ctx:   NewContext(),
+	}
+
+	result, err := h.Run("test recovery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "recovered" {
+		t.Errorf("expected 'recovered', got %s", result)
+	}
 }

@@ -17,6 +17,9 @@ var knownTypes = map[string][]string{
 
 func ParseAction(raw string) (Action, error) {
 	cleaned := cleanJSON(raw)
+	if !strings.HasPrefix(cleaned, "{") && !strings.HasPrefix(cleaned, "[") {
+		return Action{}, fmt.Errorf("response is not JSON: expected '{' or '[' but got %q", truncateStr(cleaned, 40))
+	}
 	var a Action
 	if err := json.Unmarshal([]byte(cleaned), &a); err != nil {
 		return Action{}, fmt.Errorf("parse action json: %w", err)
@@ -53,4 +56,11 @@ func cleanJSON(raw string) string {
 		}
 	}
 	return raw
+}
+
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }

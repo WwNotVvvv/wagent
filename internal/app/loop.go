@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const maxParseRetries = 3
+const maxParseRetries = 5
 
 func (h *Harness) Run(task string) (string, error) {
 	h.ctx.AddUser(task)
@@ -17,7 +17,18 @@ func (h *Harness) Run(task string) (string, error) {
 
 		action, msg, err := h.llm.Chat(h.ctx.Messages(), task)
 		if err != nil {
-			return "", fmt.Errorf("LLM error at step %d: %w", step, err)
+			record := StepRecord{
+				Step:     step,
+				Error:    err.Error(),
+				Duration: time.Since(stepStart),
+			}
+			h.ctx.AddUser(fmt.Sprintf("Action parse error: %s. Response must be valid JSON only. Please retry with a valid action.", err.Error()))
+			h.recordStep(record)
+			parseErrors++
+			if parseErrors >= maxParseRetries {
+				return "", fmt.Errorf("max parse errors reached at step %d: %w", step, err)
+			}
+			continue
 		}
 
 		guardResult := h.guard.Check(action, h.cfg)
