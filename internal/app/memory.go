@@ -12,9 +12,10 @@ import (
 )
 
 type TraceRecorder struct {
-	file  *os.File
-	runID string
-	steps []StepRecord
+	file     *os.File
+	runID    string
+	steps    []StepRecord
+	redactFn func(string) string
 }
 
 func NewTraceRecorder(cfg *Config, task string) (*TraceRecorder, error) {
@@ -47,8 +48,15 @@ func NewTraceRecorder(cfg *Config, task string) (*TraceRecorder, error) {
 	return tr, nil
 }
 
+func (t *TraceRecorder) SetRedactFunc(fn func(string) string) {
+	t.redactFn = fn
+}
+
 func (t *TraceRecorder) Record(step StepRecord) {
 	t.steps = append(t.steps, step)
+	if t.redactFn != nil {
+		step = redactStepRecord(step, t.redactFn)
+	}
 	data, err := json.Marshal(step)
 	if err != nil {
 		return
@@ -101,4 +109,28 @@ func (c *Context) AddAssistant(a Action, msg string) {
 
 func (c *Context) Messages() []string {
 	return c.messages
+}
+
+func redactStepRecord(s StepRecord, fn func(string) string) StepRecord {
+	s.Message = fn(s.Message)
+	s.Error = fn(s.Error)
+	if s.Verifier != nil {
+		v := *s.Verifier
+		v.Stdout = fn(v.Stdout)
+		v.Stderr = fn(v.Stderr)
+		v.Summary = fn(v.Summary)
+		s.Verifier = &v
+	}
+	if s.ToolResult != nil {
+		out := make(map[string]any, len(s.ToolResult))
+		for k, v := range s.ToolResult {
+			if str, ok := v.(string); ok {
+				out[k] = fn(str)
+			} else {
+				out[k] = v
+			}
+		}
+		s.ToolResult = out
+	}
+	return s
 }

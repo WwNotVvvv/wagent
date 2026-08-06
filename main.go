@@ -41,6 +41,7 @@ cfg, err := app.LoadConfigOrDefault(*configFlag)
 	}
 
 	var llm app.LLM
+	var apiKey string
 	if *mockFlag != "" {
 		m := app.NewMockLLM()
 		if err := m.LoadScript(*mockFlag); err != nil {
@@ -50,12 +51,13 @@ cfg, err := app.LoadConfigOrDefault(*configFlag)
 		llm = m
 	} else {
 		creds := app.NewCredentialStore()
-		apiKey, err := creds.Get()
+		key, err := creds.Get()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			fmt.Fprintf(os.Stderr, "Set WAGENT_API_KEY or run 'wagent key set'\n")
 			os.Exit(1)
 		}
+		apiKey = key
 		llm = app.NewOpenAILLM(apiKey, cfg.LLM.Model, cfg.LLM.BaseURL)
 	}
 
@@ -65,6 +67,11 @@ cfg, err := app.LoadConfigOrDefault(*configFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: cannot create trace: %v\n", err)
 	} else {
+		if apiKey != "" {
+			tr.SetRedactFunc(func(s string) string {
+				return app.RedactAPIKey(s, apiKey)
+			})
+		}
 		harness.SetTraceRecorder(tr)
 		defer tr.Flush()
 	}

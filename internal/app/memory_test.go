@@ -31,6 +31,48 @@ func TestTraceRecorder(t *testing.T) {
 	}
 }
 
+func TestTraceRedaction(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{Storage: StorageConfig{TraceDir: dir}}
+	tr, err := NewTraceRecorder(cfg, "test redaction")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testKey := "sk-test-trace-redaction-key"
+	tr.SetRedactFunc(func(s string) string {
+		return RedactAPIKey(s, testKey)
+	})
+
+	tr.Record(StepRecord{
+		Step:    1,
+		Message: "using key " + testKey,
+		Action:  Action{Type: "read_file", Args: map[string]any{"path": "test.txt"}},
+		ToolResult: map[string]any{
+			"content": "file content with " + testKey + " embedded",
+			"written": "test.txt",
+		},
+		Error: "error: " + testKey + " not found",
+		Verifier: &VerifierResult{
+			Stdout:  "stdout has " + testKey,
+			Stderr:  "stderr has " + testKey,
+			Summary: "summary: " + testKey,
+		},
+	})
+	tr.Flush()
+
+	entries, _ := os.ReadDir(dir)
+	data, _ := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+	content := string(data)
+
+	if containsStr(content, testKey) {
+		t.Error("trace file contains unredacted API key")
+	}
+	if !containsStr(content, "[REDACTED]") {
+		t.Error("trace file should contain [REDACTED] placeholders")
+	}
+}
+
 func TestContextAppend(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddUser("hello agent")
