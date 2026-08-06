@@ -9,7 +9,7 @@ import (
 func TestTraceRecorder(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{Storage: StorageConfig{TraceDir: dir}}
-	tr, err := NewTraceRecorder(cfg, "test task")
+	tr, err := NewTraceRecorder(cfg, "test task", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,23 +34,32 @@ func TestTraceRecorder(t *testing.T) {
 func TestTraceRedaction(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{Storage: StorageConfig{TraceDir: dir}}
-	tr, err := NewTraceRecorder(cfg, "test redaction")
+	testKey := "sk-test-trace-redaction-key"
+	redactFn := func(s string) string { return RedactAPIKey(s, testKey) }
+
+	tr, err := NewTraceRecorder(cfg, "task with "+testKey+" embedded", redactFn)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testKey := "sk-test-trace-redaction-key"
-	tr.SetRedactFunc(func(s string) string {
-		return RedactAPIKey(s, testKey)
-	})
-
 	tr.Record(StepRecord{
 		Step:    1,
 		Message: "using key " + testKey,
-		Action:  Action{Type: "read_file", Args: map[string]any{"path": "test.txt"}},
+		Action: Action{
+			Type:    "write_file",
+			Message: "writing content with " + testKey,
+			Args: map[string]any{
+				"path":    "test.txt",
+				"content": "file content with " + testKey + " embedded",
+			},
+		},
 		ToolResult: map[string]any{
-			"content": "file content with " + testKey + " embedded",
+			"content": "result has " + testKey,
 			"written": "test.txt",
+			"nested": map[string]any{
+				"inner": "nested " + testKey,
+			},
+			"list": []string{"item with " + testKey},
 		},
 		Error: "error: " + testKey + " not found",
 		Verifier: &VerifierResult{
@@ -70,6 +79,18 @@ func TestTraceRedaction(t *testing.T) {
 	}
 	if !containsStr(content, "[REDACTED]") {
 		t.Error("trace file should contain [REDACTED] placeholders")
+	}
+	// verify at least 10 redactions (message, error, action.message, action.args.content,
+	// toolresult.content, toolresult.nested.inner, toolresult.list[0],
+	// verifier.stdout, verifier.stderr, verifier.summary, metadata task)
+	redactedCount := 0
+	for i := 0; i <= len(content)-len("[REDACTED]"); i++ {
+		if content[i:i+len("[REDACTED]")] == "[REDACTED]" {
+			redactedCount++
+		}
+	}
+	if redactedCount < 10 {
+		t.Errorf("expected at least 10 [REDACTED] occurrences, got %d", redactedCount)
 	}
 }
 

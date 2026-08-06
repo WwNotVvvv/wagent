@@ -63,15 +63,12 @@ cfg, err := app.LoadConfigOrDefault(*configFlag)
 
 	harness := app.NewHarness(cfg, llm)
 
-	tr, err := app.NewTraceRecorder(cfg, task)
+	tr, err := app.NewTraceRecorder(cfg, task, func(s string) string {
+		return app.RedactAPIKey(s, apiKey)
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: cannot create trace: %v\n", err)
 	} else {
-		if apiKey != "" {
-			tr.SetRedactFunc(func(s string) string {
-				return app.RedactAPIKey(s, apiKey)
-			})
-		}
 		harness.SetTraceRecorder(tr)
 		defer tr.Flush()
 	}

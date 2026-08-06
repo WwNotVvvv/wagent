@@ -18,7 +18,7 @@ type TraceRecorder struct {
 	redactFn func(string) string
 }
 
-func NewTraceRecorder(cfg *Config, task string) (*TraceRecorder, error) {
+func NewTraceRecorder(cfg *Config, task string, redactFn func(string) string) (*TraceRecorder, error) {
 	traceDir := expandPath(cfg.Storage.TraceDir)
 	if err := os.MkdirAll(traceDir, 0755); err != nil {
 		return nil, fmt.Errorf("create trace dir: %w", err)
@@ -34,12 +34,16 @@ func NewTraceRecorder(cfg *Config, task string) (*TraceRecorder, error) {
 		return nil, fmt.Errorf("create trace file: %w", err)
 	}
 
-	tr := &TraceRecorder{file: f, runID: runID}
+	tr := &TraceRecorder{file: f, runID: runID, redactFn: redactFn}
 
+	metaTask := sanitizeTask(task)
+	if redactFn != nil {
+		metaTask = redactFn(metaTask)
+	}
 	meta := map[string]any{
 		"run_id":    runID,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"task":      sanitizeTask(task),
+		"task":      metaTask,
 	}
 	metaData, _ := json.Marshal(meta)
 	metaData = append(metaData, '\n')
@@ -114,6 +118,10 @@ func (c *Context) Messages() []string {
 func redactStepRecord(s StepRecord, fn func(string) string) StepRecord {
 	s.Message = fn(s.Message)
 	s.Error = fn(s.Error)
+	s.Action.Message = fn(s.Action.Message)
+	if s.Action.Args != nil {
+		s.Action.Args = redactAny(s.Action.Args, fn).(map[string]any)
+	}
 	if s.Verifier != nil {
 		v := *s.Verifier
 		v.Stdout = fn(v.Stdout)
@@ -122,15 +130,34 @@ func redactStepRecord(s StepRecord, fn func(string) string) StepRecord {
 		s.Verifier = &v
 	}
 	if s.ToolResult != nil {
-		out := make(map[string]any, len(s.ToolResult))
-		for k, v := range s.ToolResult {
-			if str, ok := v.(string); ok {
-				out[k] = fn(str)
-			} else {
-				out[k] = v
-			}
-		}
-		s.ToolResult = out
+		s.ToolResult = redactAny(s.ToolResult, fn).(map[string]any)
 	}
 	return s
+}
+
+func redactAny(v any, fn func(string) string) any {
+	switch val := v.(type) {
+	case string:
+		return fn(val)
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, vv := range val {
+			out[k] = redactAny(vv, fn)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, vv := range val {
+			out[i] = redactAny(vv, fn)
+		}
+		return out
+	case []string:
+		out := make([]string, len(val))
+		for i, s := range val {
+			out[i] = fn(s)
+		}
+		return out
+	default:
+		return v
+	}
 }
