@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: wagent [flags] <task>\n")
+		fmt.Fprintf(os.Stderr, "       wagent --interactive [flags]\n")
 		fmt.Fprintf(os.Stderr, "       wagent key set|status|clear\n")
 		fmt.Fprintf(os.Stderr, "\nFlags:\n")
 		flag.PrintDefaults()
@@ -19,6 +21,7 @@ func main() {
 
 	mockFlag := flag.String("mock", "", "Path to MockLLM script (disables real LLM)")
 	configFlag := flag.String("config", "", "Path to config file (optional; defaults to ./wagent.toml or built-in defaults)")
+	interactiveFlag := flag.Bool("interactive", false, "Run in interactive REPL mode")
 	flag.Parse()
 
 	// Subcommand dispatch: key set/status/clear
@@ -28,13 +31,13 @@ func main() {
 	}
 
 	// Main flow: run task
-	if flag.NArg() == 0 {
+	if flag.NArg() == 0 && !*interactiveFlag {
 		flag.Usage()
 		os.Exit(1)
 	}
 	task := strings.Join(flag.Args(), " ")
 
-// Config discovery: explicit --config -> strict load; implicit -> try wagent.toml -> defaults
+	// Config discovery: explicit --config -> strict load; implicit -> try wagent.toml -> defaults
 	configExplicit := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "config" {
@@ -91,12 +94,87 @@ func main() {
 		defer tr.Flush()
 	}
 
+	harness.SetOnStep(formatStepEvent)
+
+	if *interactiveFlag {
+		runREPL(harness)
+		return
+	}
+
 	result, err := harness.Run(task)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(result)
+}
+
+func formatStepEvent(ev app.StepEvent) {
+	switch ev.Phase {
+	case app.StepEventAction:
+		actionDesc := ev.Action.Type
+		if ev.Action.Type == "run_command" {
+			if argv, ok := ev.Action.Args["argv"]; ok {
+				actionDesc = fmt.Sprintf("run_command: %v", argv)
+			}
+		}
+		fmt.Printf("[%d/%d] ACTION %s\n", ev.Step, ev.MaxSteps, actionDesc)
+	case app.StepEventGuard:
+		switch ev.Decision {
+		case "allow":
+			fmt.Printf("[%d/%d] ALLOW %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+		case "deny":
+			fmt.Printf("[%d/%d] DENY %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+		case "ask":
+			fmt.Printf("[%d/%d] ASK %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+		}
+	case app.StepEventResult:
+		fmt.Printf("[%d/%d] RESULT %s\n", ev.Step, ev.MaxSteps, ev.Summary)
+	case app.StepEventError:
+		fmt.Printf("[%d/%d] ERROR %s\n", ev.Step, ev.MaxSteps, ev.Error)
+	}
+}
+
+func runREPL(harness *app.Harness) {
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("wagent interactive mode. Type a task to run, or :help for commands.")
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			break
+		}
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		switch line {
+		case "exit", ":exit":
+			fmt.Println("Goodbye.")
+			return
+		case ":help":
+			fmt.Println("Commands:")
+			fmt.Println("  <task>      Run a task")
+			fmt.Println("  :help       Show this help")
+			fmt.Println("  :reset      Clear conversation context")
+			fmt.Println("  :exit       Exit interactive mode")
+			fmt.Println("  exit        Exit interactive mode")
+		case ":reset":
+			harness.Reset()
+			fmt.Println("Context cleared.")
+		default:
+			if strings.HasPrefix(line, ":") {
+				fmt.Println("Unknown command. Type :help for help.")
+				continue
+			}
+			result, err := harness.Run(line)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			} else {
+				fmt.Println(result)
+			}
+		}
+	}
 }
 
 func handleKeyCommand(args []string) {

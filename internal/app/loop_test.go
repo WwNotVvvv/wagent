@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -385,5 +386,88 @@ func TestLoopOnStepNilCallback(t *testing.T) {
 	}
 	if result != "ok" {
 		t.Errorf("expected 'ok', got %s", result)
+	}
+}
+
+func TestLoopMultiTaskWithReset(t *testing.T) {
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "task1"}}}, "task1 step")
+	llm.AddResponse(Action{Type: "done"}, "task1 done")
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "task2"}}}, "task2 step")
+	llm.AddResponse(Action{Type: "done"}, "task2 done")
+
+	h := NewHarness(cfg, llm)
+
+	var events []StepEvent
+	h.SetOnStep(func(ev StepEvent) {
+		events = append(events, ev)
+	})
+
+	result1, err := h.Run("task 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result1 != "task1 done" {
+		t.Errorf("task1: expected 'task1 done', got %s", result1)
+	}
+
+	h.Reset()
+
+	result2, err := h.Run("task 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result2 != "task2 done" {
+		t.Errorf("task2: expected 'task2 done', got %s", result2)
+	}
+
+	msgs := h.ctx.Messages()
+	if len(msgs) == 0 {
+		t.Fatal("context should have messages from task 2")
+	}
+	foundTask2 := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "task 2") {
+			foundTask2 = true
+			break
+		}
+	}
+	if !foundTask2 {
+		t.Errorf("context should contain task 2, messages: %v", msgs)
+	}
+}
+
+func TestLoopMultiTaskWithoutResetContextAccumulates(t *testing.T) {
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "task1"}}}, "task1 step")
+	llm.AddResponse(Action{Type: "done"}, "task1 done")
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "task2"}}}, "task2 step")
+	llm.AddResponse(Action{Type: "done"}, "task2 done")
+
+	h := NewHarness(cfg, llm)
+
+	_, err := h.Run("task 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctxBefore := len(h.ctx.Messages())
+
+	_, err = h.Run("task 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctxAfter := len(h.ctx.Messages())
+	if ctxAfter <= ctxBefore {
+		t.Errorf("context should accumulate: before=%d, after=%d", ctxBefore, ctxAfter)
 	}
 }
