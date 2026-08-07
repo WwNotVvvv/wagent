@@ -91,3 +91,62 @@ default = "invalid"
 		t.Error("expected error for invalid default value")
 	}
 }
+
+func TestLoadConfigStrictFileMissing(t *testing.T) {
+	_, err := LoadConfigStrict("/nonexistent/path/wagent.toml")
+	if err == nil {
+		t.Fatal("expected error for missing config file")
+	}
+	t.Logf("Got expected error: %v", err)
+}
+
+func TestLoadConfigStrictFileExists(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "wagent.toml")
+	if err := os.WriteFile(cfgPath, []byte(`
+[agent]
+max_steps = 99
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfigStrict(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Agent.MaxSteps != 99 {
+		t.Errorf("expected max_steps 99, got %d", cfg.Agent.MaxSteps)
+	}
+}
+
+func TestLoadConfigOrDefaultFallback(t *testing.T) {
+	cfg, err := LoadConfigOrDefault("/nonexistent/path/wagent.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Agent.MaxSteps != 25 {
+		t.Errorf("expected default max_steps 25, got %d", cfg.Agent.MaxSteps)
+	}
+	if cfg.Policy.Default != "ask" {
+		t.Errorf("expected default policy 'ask', got %s", cfg.Policy.Default)
+	}
+}
+
+func TestLoadConfigOrDefaultFileExists(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "wagent.toml")
+	if err := os.WriteFile(cfgPath, []byte(`
+[agent]
+max_steps = 10
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfigOrDefault(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Agent.MaxSteps != 10 {
+		t.Errorf("expected max_steps 10, got %d", cfg.Agent.MaxSteps)
+	}
+}

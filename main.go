@@ -18,7 +18,7 @@ func main() {
 	}
 
 	mockFlag := flag.String("mock", "", "Path to MockLLM script (disables real LLM)")
-	configFlag := flag.String("config", "wagent.toml", "Path to config file")
+	configFlag := flag.String("config", "", "Path to config file (optional; defaults to ./wagent.toml or built-in defaults)")
 	flag.Parse()
 
 	// Subcommand dispatch: key set/status/clear
@@ -34,10 +34,28 @@ func main() {
 	}
 	task := strings.Join(flag.Args(), " ")
 
-cfg, err := app.LoadConfigOrDefault(*configFlag)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+// Config discovery: explicit --config -> strict load; implicit -> try wagent.toml -> defaults
+	configExplicit := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "config" {
+			configExplicit = true
+		}
+	})
+
+	var cfg *app.Config
+	var err error
+	if configExplicit {
+		cfg, err = app.LoadConfigStrict(*configFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config %s: %v\n", *configFlag, err)
+			os.Exit(1)
+		}
+	} else {
+		cfg, err = app.LoadConfigOrDefault("wagent.toml")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	var llm app.LLM

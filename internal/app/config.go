@@ -37,6 +37,10 @@ func LoadConfigOrDefault(path string) (*Config, error) {
 	return cfg, nil
 }
 
+func LoadConfigStrict(path string) (*Config, error) {
+	return LoadConfig(path)
+}
+
 func validateConfig(cfg *Config) error {
 	if cfg.Policy.Default != "allow" && cfg.Policy.Default != "ask" && cfg.Policy.Default != "deny" {
 		return fmt.Errorf("policy.default must be 'allow', 'ask', or 'deny', got %q", cfg.Policy.Default)
