@@ -25,6 +25,8 @@ type VerifierResult struct {
 
 type StepRecord struct {
 	Step       int              `json:"step"`
+	TaskID     string           `json:"task_id"`
+	TaskIndex  int              `json:"task_index"`
 	Message    string           `json:"message"`
 	Action     Action           `json:"action"`
 	Guard      *GuardResult     `json:"guard,omitempty"`
@@ -32,6 +34,26 @@ type StepRecord struct {
 	Verifier   *VerifierResult  `json:"verifier,omitempty"`
 	Error      string           `json:"error,omitempty"`
 	Duration   time.Duration    `json:"duration_ns"`
+}
+
+type StepEventType string
+
+const (
+	StepEventAction StepEventType = "action"
+	StepEventGuard  StepEventType = "guard"
+	StepEventResult StepEventType = "result"
+	StepEventError  StepEventType = "error"
+)
+
+type StepEvent struct {
+	Step     int           `json:"step"`
+	MaxSteps int           `json:"max_steps"`
+	Phase    StepEventType `json:"phase"`
+	Action   Action        `json:"action,omitempty"`
+	Decision string        `json:"decision,omitempty"`
+	Reason   string        `json:"reason,omitempty"`
+	Summary  string        `json:"summary,omitempty"`
+	Error    string        `json:"error,omitempty"`
 }
 
 type LLMConfig struct {

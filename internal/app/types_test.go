@@ -43,3 +43,35 @@ func TestConfigDefault(t *testing.T) {
 		t.Errorf("expected max_steps 25, got %d", cfg.Agent.MaxSteps)
 	}
 }
+
+func TestStepEventTypeConstants(t *testing.T) {
+	if StepEventAction != "action" {
+		t.Errorf("expected 'action', got %s", StepEventAction)
+	}
+	if StepEventGuard != "guard" {
+		t.Errorf("expected 'guard', got %s", StepEventGuard)
+	}
+	if StepEventResult != "result" {
+		t.Errorf("expected 'result', got %s", StepEventResult)
+	}
+	if StepEventError != "error" {
+		t.Errorf("expected 'error', got %s", StepEventError)
+	}
+}
+
+func TestStepEventStruct(t *testing.T) {
+	ev := StepEvent{
+		Step:     3,
+		MaxSteps: 25,
+		Phase:    StepEventGuard,
+		Action:   Action{Type: "run_command", Args: map[string]any{"argv": []any{"git", "push"}}},
+		Decision: "ask",
+		Reason:   "ask by policy: git push",
+	}
+	if ev.Step != 3 {
+		t.Errorf("expected step 3, got %d", ev.Step)
+	}
+	if ev.Phase != StepEventGuard {
+		t.Errorf("expected guard phase, got %s", ev.Phase)
+	}
+}
