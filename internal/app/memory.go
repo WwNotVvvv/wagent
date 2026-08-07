@@ -14,6 +14,7 @@ import (
 type TraceRecorder struct {
 	file     *os.File
 	runID    string
+	fileName string
 	steps    []StepRecord
 	redactFn func(string) string
 }
@@ -34,7 +35,7 @@ func NewTraceRecorder(cfg *Config, task string, redactFn func(string) string) (*
 		return nil, fmt.Errorf("create trace file: %w", err)
 	}
 
-	tr := &TraceRecorder{file: f, runID: runID, redactFn: redactFn}
+	tr := &TraceRecorder{file: f, runID: runID, fileName: filename, redactFn: redactFn}
 
 	metaTask := sanitizeTask(task)
 	if redactFn != nil {
@@ -75,6 +76,23 @@ func (t *TraceRecorder) Flush() {
 
 func (t *TraceRecorder) RunID() string {
 	return t.runID
+}
+
+func (t *TraceRecorder) FileName() string {
+	return t.fileName
+}
+
+func (t *TraceRecorder) WriteTaskBoundary(taskID string, taskIndex int, task string) {
+	boundary := map[string]any{
+		"type":       "task_start",
+		"task_id":    taskID,
+		"task_index": taskIndex,
+		"task":       sanitizeTask(task),
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(boundary)
+	data = append(data, '\n')
+	t.file.Write(data)
 }
 
 func generateRunID() string {

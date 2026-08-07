@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -125,4 +126,95 @@ func containsStr(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestTraceTaskBoundary(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{
+		Storage: StorageConfig{TraceDir: dir},
+		Agent:   AgentConfig{MaxSteps: 10},
+	}
+	cfg.SetDefaults()
+
+	tr, err := NewTraceRecorder(cfg, "task 1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	step := StepRecord{
+		Step:      1,
+		TaskID:    "test-task-id",
+		TaskIndex: 1,
+		Action:    Action{Type: "done"},
+		Message:   "done",
+	}
+	tr.Record(step)
+	tr.Flush()
+
+	data, err := os.ReadFile(filepath.Join(dir, tr.FileName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"task_id"`) {
+		t.Error("trace should contain task_id field")
+	}
+	if !strings.Contains(content, `"task_index"`) {
+		t.Error("trace should contain task_index field")
+	}
+}
+
+func TestTraceMultipleTasks(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{
+		Storage: StorageConfig{TraceDir: dir},
+		Agent:   AgentConfig{MaxSteps: 10},
+	}
+	cfg.SetDefaults()
+
+	tr, err := NewTraceRecorder(cfg, "first task", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tr.Record(StepRecord{
+		Step:      1,
+		TaskID:    "task-aaa",
+		TaskIndex: 1,
+		Action:    Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "hello"}}},
+		Message:   "step 1",
+	})
+
+	tr.Record(StepRecord{
+		Step:      2,
+		TaskID:    "task-aaa",
+		TaskIndex: 1,
+		Action:    Action{Type: "done"},
+		Message:   "done",
+	})
+
+	tr.Record(StepRecord{
+		Step:      1,
+		TaskID:    "task-bbb",
+		TaskIndex: 2,
+		Action:    Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "world"}}},
+		Message:   "step 1",
+	})
+
+	tr.Flush()
+
+	data, err := os.ReadFile(filepath.Join(dir, tr.FileName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"task_id"`) {
+		t.Error("trace should contain task_id")
+	}
+	if strings.Count(content, `"task_index":1`) < 1 {
+		t.Error("trace should contain task_index 1")
+	}
+	if strings.Count(content, `"task_index":2`) < 1 {
+		t.Error("trace should contain task_index 2")
+	}
 }
