@@ -272,3 +272,118 @@ func TestLoopRecoverFromParseError(t *testing.T) {
 		t.Errorf("expected 'recovered', got %s", result)
 	}
 }
+
+func TestLoopOnStepEvents(t *testing.T) {
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"echo", "hello"}}}, "echoing")
+	llm.AddResponse(Action{Type: "done"}, "finished")
+
+	h := NewHarness(cfg, llm)
+
+	var events []StepEvent
+	h.SetOnStep(func(ev StepEvent) {
+		events = append(events, ev)
+	})
+
+	_, err := h.Run("test task")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(events) == 0 {
+		t.Fatal("expected at least one event, got none")
+	}
+
+	if events[0].Phase != StepEventAction {
+		t.Errorf("first event phase: expected action, got %s", events[0].Phase)
+	}
+	if events[0].Action.Type != "run_command" {
+		t.Errorf("first event action type: expected run_command, got %s", events[0].Action.Type)
+	}
+
+	if events[1].Phase != StepEventGuard {
+		t.Errorf("second event phase: expected guard, got %s", events[1].Phase)
+	}
+	if events[1].Decision != "allow" {
+		t.Errorf("second event decision: expected allow, got %s", events[1].Decision)
+	}
+
+	if events[2].Phase != StepEventResult {
+		t.Errorf("third event phase: expected result, got %s", events[2].Phase)
+	}
+
+	foundDone := false
+	for _, ev := range events {
+		if ev.Action.Type == "done" {
+			foundDone = true
+			break
+		}
+	}
+	if !foundDone {
+		t.Error("expected a done action event")
+	}
+
+	t.Logf("Received %d events:", len(events))
+	for i, ev := range events {
+		t.Logf("  [%d] phase=%s action=%s decision=%s summary=%s", i, ev.Phase, ev.Action.Type, ev.Decision, ev.Summary)
+	}
+}
+
+func TestLoopOnStepDenyEvent(t *testing.T) {
+	cfg := &Config{
+		Agent: AgentConfig{MaxSteps: 10},
+		Policy: PolicyConfig{
+			Default:  "ask",
+			Commands: CommandPolicy{Deny: []string{"rm"}},
+		},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "run_command", Args: map[string]any{"argv": []any{"rm", "-rf", "/"}}}, "try delete")
+	llm.AddResponse(Action{Type: "done"}, "stopped")
+
+	h := NewHarness(cfg, llm)
+
+	var events []StepEvent
+	h.SetOnStep(func(ev StepEvent) {
+		events = append(events, ev)
+	})
+
+	_, err := h.Run("test task")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundDeny := false
+	for _, ev := range events {
+		if ev.Phase == StepEventGuard && ev.Decision == "deny" {
+			foundDeny = true
+			break
+		}
+	}
+	if !foundDeny {
+		t.Error("expected a deny guard event")
+	}
+}
+
+func TestLoopOnStepNilCallback(t *testing.T) {
+	cfg := &Config{
+		Agent:  AgentConfig{MaxSteps: 10},
+		Policy: PolicyConfig{Default: "allow"},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "done"}, "ok")
+
+	h := NewHarness(cfg, llm)
+
+	result, err := h.Run("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "ok" {
+		t.Errorf("expected 'ok', got %s", result)
+	}
+}

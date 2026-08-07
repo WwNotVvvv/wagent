@@ -8,6 +8,7 @@ import (
 const maxParseRetries = 5
 
 func (h *Harness) Run(task string) (string, error) {
+	taskID := h.nextTaskID()
 	h.ctx.AddUser(task)
 
 	parseErrors := 0
@@ -17,10 +18,18 @@ func (h *Harness) Run(task string) (string, error) {
 
 		action, msg, err := h.llm.Chat(h.ctx.Messages(), task)
 		if err != nil {
-			record := StepRecord{
+			h.onStep(StepEvent{
 				Step:     step,
-				Error:    err.Error(),
-				Duration: time.Since(stepStart),
+				MaxSteps: h.cfg.Agent.MaxSteps,
+				Phase:    StepEventError,
+				Error:    truncate(err.Error(), 200),
+			})
+			record := StepRecord{
+				Step:      step,
+				TaskID:    taskID,
+				TaskIndex: h.taskIdx,
+				Error:     err.Error(),
+				Duration:  time.Since(stepStart),
 			}
 			h.ctx.AddUser(fmt.Sprintf("Action parse error: %s. Response must be valid JSON only. Please retry with a valid action.", err.Error()))
 			h.recordStep(record)
@@ -31,13 +40,32 @@ func (h *Harness) Run(task string) (string, error) {
 			continue
 		}
 
-		guardResult := h.guard.Check(action, h.cfg)
-		record := StepRecord{
+		h.onStep(StepEvent{
 			Step:     step,
-			Message:  msg,
+			MaxSteps: h.cfg.Agent.MaxSteps,
+			Phase:    StepEventAction,
 			Action:   action,
-			Guard:    &guardResult,
-			Duration: time.Since(stepStart),
+		})
+
+		guardResult := h.guard.Check(action, h.cfg)
+
+		h.onStep(StepEvent{
+			Step:     step,
+			MaxSteps: h.cfg.Agent.MaxSteps,
+			Phase:    StepEventGuard,
+			Action:   action,
+			Decision: guardResult.Decision,
+			Reason:   guardResult.Reason,
+		})
+
+		record := StepRecord{
+			Step:      step,
+			TaskID:    taskID,
+			TaskIndex: h.taskIdx,
+			Message:   msg,
+			Action:    action,
+			Guard:     &guardResult,
+			Duration:  time.Since(stepStart),
 		}
 
 		if guardResult.Decision == "deny" {
@@ -80,6 +108,13 @@ func (h *Harness) Run(task string) (string, error) {
 
 		result, err := h.tools.Execute(action, h.cfg)
 		if err != nil {
+			h.onStep(StepEvent{
+				Step:     step,
+				MaxSteps: h.cfg.Agent.MaxSteps,
+				Phase:    StepEventError,
+				Action:   action,
+				Error:    truncate(err.Error(), 200),
+			})
 			record.Error = err.Error()
 			h.ctx.AddUser(fmt.Sprintf("Tool error: %s", err.Error()))
 			h.recordStep(record)
@@ -92,7 +127,16 @@ func (h *Harness) Run(task string) (string, error) {
 		record.ToolResult = truncateToolResult(action, result)
 		parseErrors = 0
 
-		feedback := formatToolResult(action, result)
+		summary := formatToolResult(action, result)
+		h.onStep(StepEvent{
+			Step:     step,
+			MaxSteps: h.cfg.Agent.MaxSteps,
+			Phase:    StepEventResult,
+			Action:   action,
+			Summary:  truncate(summary, 200),
+		})
+
+		feedback := summary
 		h.ctx.AddUser(feedback)
 		h.recordStep(record)
 	}
