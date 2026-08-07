@@ -22,7 +22,10 @@ func main() {
 	mockFlag := flag.String("mock", "", "Path to MockLLM script (disables real LLM)")
 	configFlag := flag.String("config", "", "Path to config file (optional; defaults to ./wagent.toml or built-in defaults)")
 	interactiveFlag := flag.Bool("interactive", false, "Run in interactive REPL mode")
+	colorFlag := flag.String("color", "auto", "Color mode: auto, always, never")
 	flag.Parse()
+
+	colorEnabled := app.ColorMode(*colorFlag)
 
 	// Subcommand dispatch: key set/status/clear
 	if flag.NArg() > 0 && flag.Arg(0) == "key" {
@@ -94,10 +97,12 @@ func main() {
 		defer tr.Flush()
 	}
 
-	harness.SetOnStep(formatStepEvent)
+	harness.SetOnStep(func(ev app.StepEvent) {
+		formatStepEvent(ev, colorEnabled)
+	})
 
 	if *interactiveFlag {
-		runREPL(harness)
+		runREPL(harness, colorEnabled)
 		return
 	}
 
@@ -106,10 +111,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(result)
+	fmt.Println(app.Bold(colorEnabled, result))
 }
 
-func formatStepEvent(ev app.StepEvent) {
+func formatStepEvent(ev app.StepEvent, enabled bool) {
+	prefix := fmt.Sprintf("[%d/%d]", ev.Step, ev.MaxSteps)
 	switch ev.Phase {
 	case app.StepEventAction:
 		actionDesc := ev.Action.Type
@@ -118,24 +124,24 @@ func formatStepEvent(ev app.StepEvent) {
 				actionDesc = fmt.Sprintf("run_command: %v", argv)
 			}
 		}
-		fmt.Printf("[%d/%d] ACTION %s\n", ev.Step, ev.MaxSteps, actionDesc)
+		fmt.Println(app.Cyan(enabled, prefix+" ACTION "+actionDesc))
 	case app.StepEventGuard:
 		switch ev.Decision {
 		case "allow":
-			fmt.Printf("[%d/%d] ALLOW %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+			fmt.Println(app.Green(enabled, prefix+" ALLOW "+ev.Reason))
 		case "deny":
-			fmt.Printf("[%d/%d] DENY %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+			fmt.Println(app.Red(enabled, prefix+" DENY "+ev.Reason))
 		case "ask":
-			fmt.Printf("[%d/%d] ASK %s\n", ev.Step, ev.MaxSteps, ev.Reason)
+			fmt.Println(app.Yellow(enabled, prefix+" ASK "+ev.Reason))
 		}
 	case app.StepEventResult:
-		fmt.Printf("[%d/%d] RESULT %s\n", ev.Step, ev.MaxSteps, ev.Summary)
+		fmt.Println(app.Gray(enabled, prefix+" RESULT "+ev.Summary))
 	case app.StepEventError:
-		fmt.Printf("[%d/%d] ERROR %s\n", ev.Step, ev.MaxSteps, ev.Error)
+		fmt.Println(app.Red(enabled, prefix+" ERROR "+ev.Error))
 	}
 }
 
-func runREPL(harness *app.Harness) {
+func runREPL(harness *app.Harness, colorEnabled bool) {
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("wagent interactive mode. Type a task to run, or :help for commands.")
 	for {
@@ -171,7 +177,7 @@ func runREPL(harness *app.Harness) {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			} else {
-				fmt.Println(result)
+				fmt.Println(app.Bold(colorEnabled, result))
 			}
 		}
 	}
