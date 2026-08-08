@@ -5,13 +5,17 @@ import (
 	"encoding/hex"
 )
 
+type VerifierRunner interface {
+	Verify(*Config) VerifierResult
+}
+
 type Harness struct {
 	cfg      *Config
 	llm      LLM
 	guard    *Guardrail
 	hitl     *HITL
 	tools    *ToolRegistry
-	verif    *Verifier
+	verif    VerifierRunner
 	trace    *TraceRecorder
 	ctx      *Context
 	OnStep   func(StepEvent)
@@ -41,7 +45,9 @@ func (h *Harness) SetTraceRecorder(tr *TraceRecorder) {
 func (h *Harness) SetRedactFunc(fn func(string) string) {
 	h.redactFn = fn
 	h.tools.SetRedactFunc(fn)
-	h.verif.SetRedactFunc(fn)
+	if redacting, ok := h.verif.(interface{ SetRedactFunc(func(string) string) }); ok {
+		redacting.SetRedactFunc(fn)
+	}
 	if h.trace != nil {
 		h.trace.SetRedactFunc(fn)
 	}
