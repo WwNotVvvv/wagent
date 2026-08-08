@@ -382,3 +382,29 @@ mock LLM 下确定性复现：
 3. **Windows 路径处理**：`filepath.Abs` 在不同平台行为不同，路径守卫需要在 Windows 上正确处理 `C:\` 和 `\\` 路径
 4. **跨会话记忆膨胀**：`search_memory` 用关键词匹配，笔记数量增大后需要分页或时间范围过滤，MVP 暂不处理
 5. **HITL 超时竞态**：`step_timeout` 和 `hitl.timeout` 取较早截止时间，任一超时均拒绝当前 action，在 Trace 中记录拒绝原因
+
+---
+
+## 12. 实现对齐与交付补充
+
+本节记录独立审查后对实现和交付文档的补充，以确保 SPEC 与当前代码一致。
+
+### 12.1 Memory 安全边界
+
+`take_note` 写入 `memory_dir/notes.jsonl` 前使用与 Trace 相同的 API Key 脱敏函数；`search_memory` 返回历史条目时也再次脱敏，因此旧版本留下的敏感内容不会通过检索结果直接回灌给 Agent。Memory 仍采用 JSONL 和大小写不敏感关键词匹配，属于 MVP 的有意限制。
+
+### 12.2 Trace 任务边界
+
+每次 `Harness.Run` 开始时写入一个 `task_start` 边界记录，包含 `task_id`、`task_index` 和脱敏后的任务摘要；每条步骤记录也包含相同任务标识。交互模式下多个任务追加到同一个 Trace 文件，文件只在 CLI 会话结束时关闭，避免第一个任务完成后破坏后续任务的审计记录。
+
+### 12.3 Verifier 安全与可测试性
+
+Verifier 子进程从当前环境继承必要变量，但显式移除 `WAGENT_API_KEY`。Verifier 的 stdout、stderr 和摘要在保存或反馈给 Agent 前执行脱敏。Harness 通过 `VerifierRunner` 接口依赖 Verifier，生产环境使用真实 Verifier，机制测试可以注入确定性的验证结果序列。
+
+### 12.4 反馈闭环机制演示
+
+`TestMechanismFeedbackLoop` 在 MockLLM 下确定性复现并断言：第一次 Agent 返回 `done`，脚本化 Verifier 返回失败及错误详情；Harness 将失败反馈加入上下文；下一步 Agent 执行 `read_file` 检查失败文件；最后 Agent 返回 `done`，Verifier 成功，循环结束。测试同时断言最终消息、动作序列、反馈内容和 Verifier 调用次数，证明反馈驱动了行为变化，而不是只证明循环运行过。
+
+### 12.5 工具链与交付边界
+
+项目模块基线为 Go 1.23.0，CI 使用 Go 1.23，依赖版本与该基线兼容。项目采用 CLI-only 交付，使用 GoReleaser 构建 Windows、Linux、macOS 的 amd64/arm64 二进制并通过 GitHub Release 分发；根据教师确认，本项目不实现 WebUI 或线上部署服务。

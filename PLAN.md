@@ -3030,3 +3030,38 @@ After writing the plan, verify against the spec:
    - `VerifierResult{Success, ExitCode, Stdout, Stderr, Timeout, Argv, Summary}` used in verifier and loop
    - `StepRecord{Step, Message, Action, Guard, ToolResult, Verifier, Error, Duration}` used in loop and trace
    - `Config` struct with all sub-configs used consistently
+
+---
+
+## Post-implementation reconciliation (2026-08-08)
+
+The original 14 implementation tasks are complete. The following follow-up tasks record issues found during independent audit and the documentation work needed for final submission.
+
+- [x] **Task 15: Align the Go toolchain baseline**
+  - Set `go.mod` to Go 1.23.0, matching CI and the project specification.
+  - Pin `golang.org/x/term` to v0.30.0 and `golang.org/x/sys` to v0.31.0, whose module requirements support Go 1.23.
+  - Commit: `1232cff`.
+
+- [x] **Task 16: Close Memory, Trace, and Verifier security boundaries**
+  - Redact API keys before Memory persistence and when returning legacy Memory entries.
+  - Write and redact per-task Trace boundaries; keep the shared interactive Trace open across tasks.
+  - Remove `WAGENT_API_KEY` from Verifier subprocess environments and redact Verifier output.
+  - Commit: `8204286`.
+
+- [x] **Task 17: Strengthen the deterministic feedback-loop demonstration**
+  - Inject a scripted Verifier through the `VerifierRunner` interface.
+  - Assert the sequence `done → verification failure → read_file → done`, the feedback content, final response, and Verifier call count.
+  - Commit: `05fa216`.
+
+- [x] **Task 18: Update the process log**
+  - Record the independent audit, the OpenCode process deviations, the three follow-up fixes, and the final verification evidence in `AGENT_LOG.md`.
+
+- [x] **Task 19: Consolidate the SPEC process record**
+  - Integrate the root-level `SPEC_PROCESS.md` into the project repository.
+
+- [x] **Task 20: Create the reflection report**
+  - Create `REFLECTION.md` covering Superpowers, TDD, subagent workflow, specification quality, governance, credentials, distribution, and process corrections.
+
+- [x] **Task 21: Synchronize final project documentation**
+  - Update `README.md` with the actual CLI, security, interactive, testing, and release instructions.
+  - Update `SPEC.md` so Memory redaction, Trace task boundaries, Verifier environment filtering, and the strengthened feedback demonstration are explicit.
