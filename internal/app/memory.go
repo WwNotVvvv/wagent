@@ -58,10 +58,10 @@ func (t *TraceRecorder) SetRedactFunc(fn func(string) string) {
 }
 
 func (t *TraceRecorder) Record(step StepRecord) {
-	t.steps = append(t.steps, step)
 	if t.redactFn != nil {
 		step = redactStepRecord(step, t.redactFn)
 	}
+	t.steps = append(t.steps, step)
 	data, err := json.Marshal(step)
 	if err != nil {
 		return
@@ -83,11 +83,15 @@ func (t *TraceRecorder) FileName() string {
 }
 
 func (t *TraceRecorder) WriteTaskBoundary(taskID string, taskIndex int, task string) {
+	task = sanitizeTask(task)
+	if t.redactFn != nil {
+		task = t.redactFn(task)
+	}
 	boundary := map[string]any{
 		"type":       "task_start",
 		"task_id":    taskID,
 		"task_index": taskIndex,
-		"task":       sanitizeTask(task),
+		"task":       task,
 		"timestamp":  time.Now().UTC().Format(time.RFC3339),
 	}
 	data, _ := json.Marshal(boundary)
@@ -137,6 +141,11 @@ func redactStepRecord(s StepRecord, fn func(string) string) StepRecord {
 	s.Message = fn(s.Message)
 	s.Error = fn(s.Error)
 	s.Action.Message = fn(s.Action.Message)
+	if s.Guard != nil {
+		g := *s.Guard
+		g.Reason = fn(g.Reason)
+		s.Guard = &g
+	}
 	if s.Action.Args != nil {
 		s.Action.Args = redactAny(s.Action.Args, fn).(map[string]any)
 	}

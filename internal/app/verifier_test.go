@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +67,45 @@ func TestVerifierExecutableNotFound(t *testing.T) {
 	}
 	if result.ExitCode != -1 {
 		t.Errorf("expected exit_code -1, got %d", result.ExitCode)
+	}
+}
+
+func TestVerifierEnvProbe(t *testing.T) {
+	if os.Getenv("WAGENT_VERIFIER_ENV_PROBE") != "1" {
+		return
+	}
+	if os.Getenv("WAGENT_API_KEY") != "" {
+		t.Fatal("WAGENT_API_KEY was passed to verifier subprocess")
+	}
+}
+
+func TestVerifierDoesNotPassAPIKey(t *testing.T) {
+	t.Setenv("WAGENT_API_KEY", "sk-verifier-environment-secret")
+	t.Setenv("WAGENT_VERIFIER_ENV_PROBE", "1")
+
+	v := &Verifier{}
+	cfg := &Config{Agent: AgentConfig{
+		VerifyCommand: []string{os.Args[0], "-test.run=TestVerifierEnvProbe"},
+	}}
+	result := v.Verify(cfg)
+	if !result.Success {
+		t.Fatalf("verifier subprocess received the API key: exit_code=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+func TestVerifierRedactsOutput(t *testing.T) {
+	key := "sk-verifier-output-secret"
+	v := &Verifier{}
+	v.SetRedactFunc(func(s string) string { return RedactAPIKey(s, key) })
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "echo", key}}}
+	result := v.Verify(cfg)
+	if !result.Success {
+		t.Fatalf("expected verifier success, got exit_code=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if strings.Contains(result.Stdout, key) || strings.Contains(result.Stderr, key) || strings.Contains(result.Summary, key) {
+		t.Error("verifier result contains unredacted API key")
+	}
+	if !strings.Contains(result.Stdout, "[REDACTED]") {
+		t.Error("verifier stdout should contain a redacted placeholder")
 	}
 }

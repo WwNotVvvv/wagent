@@ -6,16 +6,17 @@ import (
 )
 
 type Harness struct {
-	cfg     *Config
-	llm     LLM
-	guard   *Guardrail
-	hitl    *HITL
-	tools   *ToolRegistry
-	verif   *Verifier
-	trace   *TraceRecorder
-	ctx     *Context
-	OnStep  func(StepEvent)
-	taskIdx int
+	cfg      *Config
+	llm      LLM
+	guard    *Guardrail
+	hitl     *HITL
+	tools    *ToolRegistry
+	verif    *Verifier
+	trace    *TraceRecorder
+	ctx      *Context
+	OnStep   func(StepEvent)
+	taskIdx  int
+	redactFn func(string) string
 }
 
 func NewHarness(cfg *Config, llm LLM) *Harness {
@@ -32,6 +33,18 @@ func NewHarness(cfg *Config, llm LLM) *Harness {
 
 func (h *Harness) SetTraceRecorder(tr *TraceRecorder) {
 	h.trace = tr
+	if h.redactFn != nil {
+		tr.SetRedactFunc(h.redactFn)
+	}
+}
+
+func (h *Harness) SetRedactFunc(fn func(string) string) {
+	h.redactFn = fn
+	h.tools.SetRedactFunc(fn)
+	h.verif.SetRedactFunc(fn)
+	if h.trace != nil {
+		h.trace.SetRedactFunc(fn)
+	}
 }
 
 func (h *Harness) SetOnStep(fn func(StepEvent)) {

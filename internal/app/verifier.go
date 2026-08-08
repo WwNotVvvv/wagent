@@ -3,12 +3,19 @@ package app
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-type Verifier struct{}
+type Verifier struct {
+	redactFn func(string) string
+}
+
+func (v *Verifier) SetRedactFunc(fn func(string) string) {
+	v.redactFn = fn
+}
 
 func (v *Verifier) Verify(cfg *Config) VerifierResult {
 	if len(cfg.Agent.VerifyCommand) == 0 {
@@ -27,7 +34,7 @@ func (v *Verifier) Verify(cfg *Config) VerifierResult {
 		cmd.Dir = cfg.Agent.WorkDir
 	}
 
-	cmd.Env = filterEnv(nil, "")
+	cmd.Env = filterEnv(os.Environ(), "WAGENT_API_KEY")
 
 	err := cmd.Run()
 	result := VerifierResult{
@@ -42,6 +49,10 @@ func (v *Verifier) Verify(cfg *Config) VerifierResult {
 
 	outStr := stdout.String()
 	errStr := stderr.String()
+	if v.redactFn != nil {
+		outStr = v.redactFn(outStr)
+		errStr = v.redactFn(errStr)
+	}
 	result.Stdout = truncate(outStr, 4096)
 	result.Stderr = truncate(errStr, 4096)
 	result.Summary = summarizeOutput(outStr, errStr)

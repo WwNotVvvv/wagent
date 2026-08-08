@@ -218,3 +218,67 @@ func TestTraceMultipleTasks(t *testing.T) {
 		t.Error("trace should contain task_index 2")
 	}
 }
+
+func TestTraceTaskBoundaryRedaction(t *testing.T) {
+	dir := t.TempDir()
+	key := "sk-boundary-secret"
+	tr, err := NewTraceRecorder(&Config{Storage: StorageConfig{TraceDir: dir}}, "initial", func(s string) string {
+		return RedactAPIKey(s, key)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tr.WriteTaskBoundary("task-1", 1, "task contains "+key)
+	tr.Flush()
+
+	data, err := os.ReadFile(filepath.Join(dir, tr.FileName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Contains(content, key) {
+		t.Error("trace task boundary contains unredacted API key")
+	}
+	if !strings.Contains(content, `"type":"task_start"`) {
+		t.Error("trace should contain a task_start boundary")
+	}
+}
+
+func TestHarnessWritesTaskBoundariesToSharedTrace(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{
+		Agent:   AgentConfig{MaxSteps: 5},
+		Policy:  PolicyConfig{Default: "allow"},
+		Storage: StorageConfig{TraceDir: dir},
+	}
+	llm := NewMockLLM()
+	llm.AddResponse(Action{Type: "done"}, "first done")
+	llm.AddResponse(Action{Type: "done"}, "second done")
+	h := NewHarness(cfg, llm)
+	tr, err := NewTraceRecorder(cfg, "interactive", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.SetTraceRecorder(tr)
+
+	if _, err := h.Run("first task"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.Run("second task"); err != nil {
+		t.Fatal(err)
+	}
+	tr.Flush()
+
+	data, err := os.ReadFile(filepath.Join(dir, tr.FileName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Count(content, `"type":"task_start"`) != 2 {
+		t.Errorf("expected two task_start boundaries, got trace:\n%s", content)
+	}
+	if !strings.Contains(content, `"task_index":1`) || !strings.Contains(content, `"task_index":2`) {
+		t.Error("trace should contain both task indexes")
+	}
+}

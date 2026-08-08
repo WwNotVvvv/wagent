@@ -82,6 +82,60 @@ func TestToolTakeNote(t *testing.T) {
 	}
 }
 
+func TestToolTakeNoteRedactsAPIKey(t *testing.T) {
+	dir := t.TempDir()
+	key := "sk-memory-secret"
+	cfg := &Config{Storage: StorageConfig{MemoryDir: dir}}
+	reg := NewToolRegistry()
+	reg.SetRedactFunc(func(s string) string { return RedactAPIKey(s, key) })
+
+	_, err := reg.Execute(Action{
+		Type: "take_note",
+		Args: map[string]any{"content": "remember " + key},
+	}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "notes.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Contains(content, key) {
+		t.Error("memory file contains unredacted API key")
+	}
+	if !strings.Contains(content, "[REDACTED]") {
+		t.Error("memory file should contain a redacted placeholder")
+	}
+}
+
+func TestToolSearchMemoryRedactsExistingAPIKey(t *testing.T) {
+	dir := t.TempDir()
+	key := "sk-existing-memory-secret"
+	notesPath := filepath.Join(dir, "notes.jsonl")
+	if err := os.WriteFile(notesPath, []byte(`{"content":"legacy `+key+`"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := NewToolRegistry()
+	reg.SetRedactFunc(func(s string) string { return RedactAPIKey(s, key) })
+	result, err := reg.Execute(Action{
+		Type: "search_memory",
+		Args: map[string]any{"keyword": "legacy"},
+	}, &Config{Storage: StorageConfig{MemoryDir: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes, ok := result["notes"].([]string)
+	if !ok || len(notes) != 1 {
+		t.Fatalf("expected one matching note, got %v", result["notes"])
+	}
+	if strings.Contains(notes[0], key) {
+		t.Error("memory search result contains unredacted API key")
+	}
+}
+
 func TestToolSearchMemory(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{Storage: StorageConfig{MemoryDir: dir}}

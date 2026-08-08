@@ -9,6 +9,9 @@ const maxParseRetries = 5
 
 func (h *Harness) Run(task string) (string, error) {
 	taskID := h.nextTaskID()
+	if h.trace != nil {
+		h.trace.WriteTaskBoundary(taskID, h.taskIdx, task)
+	}
 	h.ctx.AddUser(task)
 
 	parseErrors := 0
@@ -102,7 +105,6 @@ func (h *Harness) Run(task string) (string, error) {
 				}
 			}
 			h.recordStep(record)
-			h.flushTrace()
 			return msg, nil
 		}
 
@@ -141,19 +143,12 @@ func (h *Harness) Run(task string) (string, error) {
 		h.recordStep(record)
 	}
 
-	h.flushTrace()
 	return "", fmt.Errorf("max steps (%d) reached without completion", h.cfg.Agent.MaxSteps)
 }
 
 func (h *Harness) recordStep(step StepRecord) {
 	if h.trace != nil {
 		h.trace.Record(step)
-	}
-}
-
-func (h *Harness) flushTrace() {
-	if h.trace != nil {
-		h.trace.Flush()
 	}
 }
 

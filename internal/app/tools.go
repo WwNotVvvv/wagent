@@ -13,10 +13,16 @@ import (
 	"time"
 )
 
-type ToolRegistry struct{}
+type ToolRegistry struct {
+	redactFn func(string) string
+}
 
 func NewToolRegistry() *ToolRegistry {
 	return &ToolRegistry{}
+}
+
+func (r *ToolRegistry) SetRedactFunc(fn func(string) string) {
+	r.redactFn = fn
 }
 
 func (r *ToolRegistry) Execute(a Action, cfg *Config) (map[string]any, error) {
@@ -115,6 +121,9 @@ func (r *ToolRegistry) runCommand(a Action, cfg *Config) (map[string]any, error)
 
 func (r *ToolRegistry) takeNote(a Action, cfg *Config) (map[string]any, error) {
 	content, _ := a.Args["content"].(string)
+	if r.redactFn != nil {
+		content = r.redactFn(content)
+	}
 	notesDir := expandPath(cfg.Storage.MemoryDir)
 	if err := os.MkdirAll(notesDir, 0755); err != nil {
 		return nil, fmt.Errorf("create notes dir: %w", err)
@@ -151,6 +160,9 @@ func (r *ToolRegistry) searchMemory(a Action, cfg *Config) (map[string]any, erro
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(strings.ToLower(line), keyword) {
+			if r.redactFn != nil {
+				line = r.redactFn(line)
+			}
 			matches = append(matches, line)
 		}
 	}
