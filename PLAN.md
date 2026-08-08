@@ -106,7 +106,7 @@ Task 14 (CI/release) depends on Task 12
 - Consumes: (none — first task)
 - Produces: `Config`, `Action`, `GuardResult`, `VerifierResult`, `StepRecord` structs; `ConfigValidate()` function
 
-- [ ] **Step 1: Initialize the Go module**
+- [x] **Step 1: Initialize the Go module**
 
 ```bash
 cd wagent
@@ -114,7 +114,7 @@ go mod init wagent
 mkdir -p internal/app
 ```
 
-- [ ] **Step 2: Write the failing test for types**
+- [x] **Step 2: Write the failing test for types**
 
 ```go
 // internal/app/types_test.go
@@ -165,12 +165,12 @@ func TestConfigDefault(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestConfigDefault -v`
 Expected: compile error — `Config` undefined, `SetDefaults` undefined
 
-- [ ] **Step 4: Write minimal types implementation**
+- [x] **Step 4: Write minimal types implementation**
 
 ```go
 // internal/app/types.go
@@ -288,12 +288,12 @@ func (c *Config) SetDefaults() {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -v`
 Expected: PASS for all 5 tests
 
-- [ ] **Step 6: Write minimal main.go skeleton**
+- [x] **Step 6: Write minimal main.go skeleton**
 
 ```go
 // main.go
@@ -302,7 +302,7 @@ package main
 func main() {}
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -321,7 +321,7 @@ git commit -m "feat: project scaffolding and core types"
 - Consumes: `Config` struct, `Config.SetDefaults()` from Task 1
 - Produces: `LoadConfig(path string) (*Config, error)` — loads TOML, applies defaults, validates
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/config_test.go
@@ -393,12 +393,12 @@ default = "invalid"
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestLoadConfig -v`
 Expected: FAIL — `LoadConfig` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/config.go
@@ -434,12 +434,12 @@ func validateConfig(cfg *Config) error {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go mod tidy; go test ./internal/app/ -run TestLoadConfig -v`
 Expected: PASS for all 3 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/config.go internal/app/config_test.go
@@ -458,7 +458,7 @@ git commit -m "feat: TOML config loading with validation"
 - Consumes: `Action` from Task 1
 - Produces: `LLM` interface with `Chat(ctx, messages, tools) → Action, string, error`; `MockLLM` struct with `LoadScript(path) error` and programmable step-by-step responses
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/llm_test.go
@@ -523,12 +523,12 @@ func TestMockLLMLoadScript(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestMockLLM -v`
 Expected: FAIL — `NewMockLLM` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/llm.go
@@ -586,12 +586,12 @@ func (m *MockLLM) Chat(context []string, task string) (Action, string, error) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestMockLLM -v`
 Expected: PASS for all 3 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/llm.go internal/app/llm_test.go
@@ -610,7 +610,7 @@ git commit -m "feat: LLM interface and MockLLM implementation"
 - Consumes: `Action` from Task 1, `LLM` interface from Task 3
 - Produces: `ParseAction(jsonStr string) (Action, error)` — parse JSON into Action, validate type and args; `ValidateAction(a Action) error` — check known types, required args
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/action_test.go
@@ -680,12 +680,12 @@ func TestParseActionMarkdownWrapper(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestParseAction -v`
 Expected: FAIL — `ParseAction` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/action.go
@@ -747,12 +747,12 @@ func cleanJSON(raw string) string {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestParseAction -v`
 Expected: PASS for all 6 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/action.go internal/app/action_test.go
@@ -773,7 +773,7 @@ git commit -m "feat: action parser and validator"
 - Consumes: `Action`, `GuardResult`, `Config` from Tasks 1–2
 - Produces: `Guardrail.Check(action, cfg) → GuardResult` — command matching + path matching; `HITL.Prompt(action, timeout) → bool` — ask user for approval
 
-- [ ] **Step 1: Write the failing guardrail test**
+- [x] **Step 1: Write the failing guardrail test**
 
 ```go
 // internal/app/guardrail_test.go
@@ -874,12 +874,12 @@ func TestGuardrailNonFileAction(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestGuardrail -v`
 Expected: FAIL — `Guardrail` undefined
 
-- [ ] **Step 3: Write minimal guardrail implementation**
+- [x] **Step 3: Write minimal guardrail implementation**
 
 ```go
 // internal/app/guardrail.go
@@ -976,7 +976,7 @@ func toStringSlice(v any) []string {
 }
 ```
 
-- [ ] **Step 4: Write the failing HITL test**
+- [x] **Step 4: Write the failing HITL test**
 
 ```go
 // internal/app/hitl_test.go
@@ -1008,7 +1008,7 @@ func TestHITLTimeout(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Write HITL implementation**
+- [x] **Step 5: Write HITL implementation**
 
 ```go
 // internal/app/hitl.go
@@ -1052,12 +1052,12 @@ func (h *HITL) Prompt(a Action, timeout time.Duration) bool {
 }
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `go test ./internal/app/ -run "TestGuardrail|TestHITL" -v`
 Expected: PASS for all guardrail tests + HITL timeout tests
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add internal/app/guardrail.go internal/app/guardrail_test.go internal/app/hitl.go internal/app/hitl_test.go
@@ -1076,7 +1076,7 @@ git commit -m "feat: guardrail with command/path policy and HITL"
 - Consumes: `Action`, `GuardResult`, `Config` from Tasks 1–2, `Guardrail` from Task 5
 - Produces: `ToolRegistry` with `Execute(a Action, cfg *Config) (map[string]any, error)` — dispatches to handler by type; individual handlers for read_file, write_file, run_command, take_note, search_memory
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/tools_test.go
@@ -1194,12 +1194,12 @@ func TestToolUnknownType(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestTool -v`
 Expected: FAIL — `NewToolRegistry` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/tools.go
@@ -1371,12 +1371,12 @@ func filterEnv(env []string, key string) []string {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestTool -v`
 Expected: PASS for all 7 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/tools.go internal/app/tools_test.go
@@ -1395,7 +1395,7 @@ git commit -m "feat: tool registry with 5 tools (read/write/run/note/search)"
 - Consumes: `VerifierResult` from Task 1, `Config` from Task 2
 - Produces: `Verifier.Verify(cfg) → VerifierResult` — executes the configured verify command, collects results
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/verifier_test.go
@@ -1445,12 +1445,12 @@ func TestVerifierStdoutCapture(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestVerifier -v`
 Expected: FAIL — `Verifier` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/verifier.go
@@ -1535,12 +1535,12 @@ func summarizeOutput(stdout, stderr string) string {
 
 Note: add `"strings"` to the import block.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestVerifier -v`
 Expected: PASS for all 4 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/verifier.go internal/app/verifier_test.go
@@ -1559,7 +1559,7 @@ git commit -m "feat: verifier for running test/verify commands"
 - Consumes: `StepRecord`, `Config` from Tasks 1–2
 - Produces: `TraceRecorder` with `Record(step StepRecord)`, `Flush()`, `NewTraceRecorder(cfg, task) (*TraceRecorder, error)`; `Context` — in-memory conversation history management
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/memory_test.go
@@ -1633,12 +1633,12 @@ func containsStr(s, substr string) bool {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run "TestTrace|TestContext" -v`
 Expected: FAIL — `NewTraceRecorder` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/memory.go
@@ -1750,12 +1750,12 @@ func (c *Context) Messages() []string {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run "TestTrace|TestContext" -v`
 Expected: PASS for both tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/memory.go internal/app/memory_test.go
@@ -1774,7 +1774,7 @@ git commit -m "feat: trace recorder and conversation context"
 - Consumes: (none — standalone)
 - Produces: `CredentialStore` with `Get() (string, error)`, `Set(key string) error`, `Status() (bool, error)`, `Clear() error`; uses go-keyring, falls back to `WAGENT_API_KEY` env var, interactive prompt for first-time setup
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/credential_test.go
@@ -1824,12 +1824,12 @@ func TestCredentialEmpty(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestCredential -v`
 Expected: FAIL — `NewCredentialStore` undefined
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```go
 // internal/app/credential.go
@@ -1924,12 +1924,12 @@ func keychainDelete(service, account string) error {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestCredential -v`
 Expected: PASS (env var tests pass, keychain test may be skipped)
 
-- [ ] **Step 5: Add sanitize.go for API Key redaction**
+- [x] **Step 5: Add sanitize.go for API Key redaction**
 
 ```go
 // internal/app/sanitize.go
@@ -1945,7 +1945,7 @@ func RedactAPIKey(data string, apiKey string) string {
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/app/credential.go internal/app/credential_test.go internal/app/sanitize.go
@@ -1964,7 +1964,7 @@ git commit -m "feat: credential store with env var and keychain support"
 - Consumes: `LLM` interface from Task 3, `Action` from Task 1, `Config` from Task 2, `CredentialStore` from Task 9
 - Produces: `OpenAILLM` struct implementing `LLM` interface; constructs HTTP request to OpenAI-compatible `/chat/completions` endpoint
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 // internal/app/llm_openai_test.go
@@ -2004,12 +2004,12 @@ func TestOpenAILLMResponseParse(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestOpenAILLM -v`
 Expected: FAIL — `NewOpenAILLM` undefined
 
-- [ ] **Step 3: Write OpenAI LLM implementation**
+- [x] **Step 3: Write OpenAI LLM implementation**
 
 Append to `internal/app/llm.go`:
 
@@ -2090,12 +2090,12 @@ func (o *OpenAILLM) parseResponse(data []byte) (Action, string, error) {
 
 Note: Add `"strings"` and `"encoding/json"` if not already imported in llm.go.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestOpenAILLM -v`
 Expected: PASS for both tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/llm.go internal/app/llm_openai_test.go
@@ -2115,7 +2115,7 @@ git commit -m "feat: OpenAI-compatible LLM client with request building and resp
 - Consumes: All types from Tasks 1–10: `Config`, `LLM`, `MockLLM`, `OpenAILLM`, `Guardrail`, `HITL`, `ToolRegistry`, `Verifier`, `TraceRecorder`, `Context`, `CredentialStore`, `ParseAction`, `ValidateAction`
 - Produces: `Harness` struct with `Run(task string) error` — assembles all components, runs the agent loop
 
-- [ ] **Step 1: Write the failing test for the harness/loop**
+- [x] **Step 1: Write the failing test for the harness/loop**
 
 ```go
 // internal/app/loop_test.go
@@ -2281,12 +2281,12 @@ func TestLoopToolExecution(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/app/ -run TestLoop -v`
 Expected: FAIL — `Harness` undefined
 
-- [ ] **Step 3: Write harness assembly**
+- [x] **Step 3: Write harness assembly**
 
 ```go
 // internal/app/harness.go
@@ -2320,7 +2320,7 @@ func (h *Harness) SetTraceRecorder(tr *TraceRecorder) {
 }
 ```
 
-- [ ] **Step 4: Write agent loop implementation**
+- [x] **Step 4: Write agent loop implementation**
 
 ```go
 // internal/app/loop.go
@@ -2477,12 +2477,12 @@ func parseDuration(s string, fallbackSec int) time.Duration {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `go test ./internal/app/ -run TestLoop -v`
 Expected: PASS for all 6 tests
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/app/harness.go internal/app/loop.go internal/app/loop_test.go
@@ -2501,7 +2501,7 @@ git commit -m "feat: harness assembly and agent loop with guardrail, tools, veri
 - Consumes: `Harness`, `Config`, `MockLLM`, `OpenAILLM`, `CredentialStore`, `NewTraceRecorder` from all prior tasks
 - Produces: Runnable `wagent` binary with `wagent <task>`, `wagent --mock <script> <task>`, `wagent key set|status|clear`
 
-- [ ] **Step 1: Write the main.go**
+- [x] **Step 1: Write the main.go**
 
 ```go
 // main.go
@@ -2632,7 +2632,7 @@ func handleKeyCommand(args []string) {
 }
 ```
 
-- [ ] **Step 2: Create example config**
+- [x] **Step 2: Create example config**
 
 ```toml
 # examples/wagent.toml
@@ -2667,7 +2667,7 @@ deny = ["/etc/", "~/.ssh/"]
 timeout = "120s"
 ```
 
-- [ ] **Step 3: Build and verify**
+- [x] **Step 3: Build and verify**
 
 Run: `go build -o wagent.exe .`
 Expected: binary compiles without errors
@@ -2675,7 +2675,7 @@ Expected: binary compiles without errors
 Run: `go test ./internal/app/ -v`
 Expected: all tests PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add main.go examples/wagent.toml
@@ -2694,7 +2694,7 @@ git commit -m "feat: CLI main entry point with flag parsing and subcommand dispa
 - Consumes: `Harness`, `MockLLM`, `Config` from prior tasks
 - Produces: Deterministic tests demonstrating the 3 required mechanisms
 
-- [ ] **Step 1: Create the mock script**
+- [x] **Step 1: Create the mock script**
 
 ```json
 [
@@ -2705,7 +2705,7 @@ git commit -m "feat: CLI main entry point with flag parsing and subcommand dispa
 ]
 ```
 
-- [ ] **Step 2: Write the mechanism demo test**
+- [x] **Step 2: Write the mechanism demo test**
 
 ```go
 // internal/app/demo_test.go
@@ -2817,12 +2817,12 @@ func TestMechanismGovernanceTiers(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run demo tests**
+- [x] **Step 3: Run demo tests**
 
 Run: `go test ./internal/app/ -run TestMechanism -v`
 Expected: PASS for all demo tests
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/demo_mock.json internal/app/demo_test.go
@@ -2838,7 +2838,7 @@ git commit -m "test: mechanism demo tests for guardrail, feedback loop, and gove
 - Create: `.goreleaser.yaml`
 - Create: `README.md`
 
-- [ ] **Step 1: Create .gitlab-ci.yml**
+- [x] **Step 1: Create .gitlab-ci.yml**
 
 ```yaml
 # .gitlab-ci.yml
@@ -2867,7 +2867,7 @@ build:
     - if: $CI_COMMIT_TAG
 ```
 
-- [ ] **Step 2: Create .goreleaser.yaml**
+- [x] **Step 2: Create .goreleaser.yaml**
 
 ```yaml
 # .goreleaser.yaml
@@ -2910,7 +2910,7 @@ release:
     name: wagent
 ```
 
-- [ ] **Step 3: Create README.md**
+- [x] **Step 3: Create README.md**
 
 ```markdown
 # wagent — Coding Agent Harness
@@ -2990,7 +2990,7 @@ go test ./... -v
 - Windows path handling may differ from Linux/macOS
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .gitlab-ci.yml .goreleaser.yaml README.md
