@@ -42,3 +42,28 @@ func TestVerifierStdoutCapture(t *testing.T) {
 		t.Errorf("expected 'hello world\\r\\n', got %q", result.Stdout)
 	}
 }
+
+func TestVerifierWorkDir(t *testing.T) {
+	dir := t.TempDir()
+	v := &Verifier{}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "cd"}, WorkDir: dir}}
+	result := v.Verify(cfg)
+	if !result.Success {
+		t.Errorf("expected success, got exit_code=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result.Stdout != dir+"\r\n" {
+		t.Errorf("expected work_dir %s in stdout, got %q", dir, result.Stdout)
+	}
+}
+
+func TestVerifierExecutableNotFound(t *testing.T) {
+	v := &Verifier{}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"nonexistent_binary_xyz"}}}
+	result := v.Verify(cfg)
+	if result.Success {
+		t.Error("expected failure for nonexistent executable")
+	}
+	if result.ExitCode != -1 {
+		t.Errorf("expected exit_code -1, got %d", result.ExitCode)
+	}
+}

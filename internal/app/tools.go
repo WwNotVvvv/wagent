@@ -38,6 +38,10 @@ func (r *ToolRegistry) Execute(a Action, cfg *Config) (map[string]any, error) {
 
 func (r *ToolRegistry) readFile(a Action) (map[string]any, error) {
 	path, _ := a.Args["path"].(string)
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		return nil, fmt.Errorf("read_file target is a directory; please provide a file path")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -72,12 +76,17 @@ func (r *ToolRegistry) runCommand(a Action, cfg *Config) (map[string]any, error)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	if cfg != nil && cfg.Agent.WorkDir != "" {
+		cmd.Dir = cfg.Agent.WorkDir
+	}
+
 	cmd.Env = os.Environ()
 	cmd.Env = filterEnv(cmd.Env, "WAGENT_API_KEY")
 
 	err := cmd.Run()
 	exitCode := 0
 	timedOut := false
+	var startError string
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			timedOut = true
@@ -85,18 +94,23 @@ func (r *ToolRegistry) runCommand(a Action, cfg *Config) (map[string]any, error)
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = -1
+			startError = err.Error()
 		}
 	}
 
 	outStr := stdout.String()
 	errStr := stderr.String()
 
-	return map[string]any{
+	result := map[string]any{
 		"stdout":    outStr,
 		"stderr":    errStr,
 		"exit_code": exitCode,
 		"timeout":   timedOut,
-	}, nil
+	}
+	if startError != "" {
+		result["start_error"] = startError
+	}
+	return result, nil
 }
 
 func (r *ToolRegistry) takeNote(a Action, cfg *Config) (map[string]any, error) {

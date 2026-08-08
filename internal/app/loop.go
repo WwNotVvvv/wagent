@@ -164,9 +164,14 @@ func formatToolResult(a Action, result map[string]any) string {
 		stderr, _ := result["stderr"].(string)
 		exitCode, _ := result["exit_code"].(int)
 		timeout, _ := result["timeout"].(bool)
-		summary := fmt.Sprintf("Command completed: exit_code=%d", exitCode)
+		startError, _ := result["start_error"].(string)
+		var summary string
 		if timeout {
 			summary = "Command timed out"
+		} else if startError != "" {
+			summary = fmt.Sprintf("Command failed: %s", truncate(startError, 200))
+		} else {
+			summary = fmt.Sprintf("Command completed: exit_code=%d", exitCode)
 		}
 		if stdout != "" {
 			summary += "\n" + truncate(stdout, 2000)

@@ -23,6 +23,10 @@ func (v *Verifier) Verify(cfg *Config) VerifierResult {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	if cfg.Agent.WorkDir != "" {
+		cmd.Dir = cfg.Agent.WorkDir
+	}
+
 	cmd.Env = filterEnv(nil, "")
 
 	err := cmd.Run()
