@@ -1,12 +1,32 @@
 # wagent — Coding Agent Harness
 
+**English | [简体中文](README.zh-CN.md)**
+
 `wagent` is a CLI coding-agent harness for local Git projects. It drives an LLM through a Think → Guard → Act → Observe → Feedback loop while enforcing command and path governance policies.
 
-The project is CLI-only. The instructor confirmed that a WebUI and online deployment are not required; the intended distribution is a GitHub Release containing native binaries.
+The project is CLI-only, and the intended distribution is a GitHub Release containing native binaries.
 
 ## Quick start
 
-Run `wagent` from the root of any local Git project.
+The `wagent` source code does not need to be copied into the project being edited. Download a release binary and place it in any tools directory, add that directory to `PATH`, or invoke the binary with its full path. Then change the current directory to the root of the local Git project before starting a task.
+
+For example, on Windows:
+
+```powershell
+# The binary may be stored anywhere; this is only an example location.
+cd D:\work\my-project
+D:\tools\wagent\wagent.exe key set
+D:\tools\wagent\wagent.exe "add unit tests for user.go"
+```
+
+If the `wagent` directory is on `PATH`, the same task can be started with:
+
+```powershell
+cd D:\work\my-project
+wagent "add unit tests for user.go"
+```
+
+By default, `wagent` looks for `wagent.toml` in the current directory, which should normally be the root of the Git project being edited. This file configures the LLM endpoint, step limits, verifier command, work directory, storage locations, and governance policies. Copy [`examples/wagent.toml`](examples/wagent.toml) as a starting point and adjust it for your project. If no local configuration exists, built-in defaults are used. A configuration in another location can be supplied explicitly with `--config`.
 
 ```bash
 # Store an API key in the operating-system keychain.
@@ -84,5 +104,4 @@ CI is configured in [`.gitlab-ci.yml`](.gitlab-ci.yml); the `unit-test` job runs
 
 - MockLLM uses a sequential script and does not support conditional branching.
 - Memory search is case-insensitive keyword matching rather than vector search.
-- A real GitHub Release URL exists only after the repository and release are published.
-- Path behavior follows the host platform and should be tested on Windows, Linux, and macOS when distributing a release.
+- The current release has been tested on Windows and Linux; macOS has not yet been verified.
