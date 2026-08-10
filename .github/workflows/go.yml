@@ -9,8 +9,11 @@ permissions:
 
 jobs:
   unit-test:
-    name: unit-test
-    runs-on: ubuntu-latest
+    name: unit-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout

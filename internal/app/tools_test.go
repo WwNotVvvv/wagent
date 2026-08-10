@@ -50,7 +50,7 @@ func TestToolWriteFile(t *testing.T) {
 
 func TestToolRunCommand(t *testing.T) {
 	reg := NewToolRegistry()
-	a := Action{Type: "run_command", Args: map[string]any{"argv": []any{"cmd.exe", "/c", "echo", "hello"}}}
+	a := Action{Type: "run_command", Args: map[string]any{"argv": toAnySlice(testCommandEcho("hello"))}}
 	result, err := reg.Execute(a, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +195,7 @@ func TestToolRunCommandExecutableNotFound(t *testing.T) {
 
 func TestToolRunCommandNonZeroExit(t *testing.T) {
 	reg := NewToolRegistry()
-	a := Action{Type: "run_command", Args: map[string]any{"argv": []any{"cmd.exe", "/c", "exit", "42"}}}
+	a := Action{Type: "run_command", Args: map[string]any{"argv": toAnySlice(testCommandExit(42))}}
 	result, err := reg.Execute(a, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestToolRunCommandNonZeroExit(t *testing.T) {
 
 func TestToolRunCommandStderr(t *testing.T) {
 	reg := NewToolRegistry()
-	a := Action{Type: "run_command", Args: map[string]any{"argv": []any{"cmd.exe", "/c", "echo", "error message", ">&2"}}}
+	a := Action{Type: "run_command", Args: map[string]any{"argv": toAnySlice(testCommandStderr("error message"))}}
 	result, err := reg.Execute(a, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -225,7 +225,7 @@ func TestToolRunCommandWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{Agent: AgentConfig{WorkDir: dir}}
 	reg := NewToolRegistry()
-	a := Action{Type: "run_command", Args: map[string]any{"argv": []any{"cmd.exe", "/c", "cd"}}}
+	a := Action{Type: "run_command", Args: map[string]any{"argv": toAnySlice(testCommandWorkingDirectory())}}
 	result, err := reg.Execute(a, cfg)
 	if err != nil {
 		t.Fatal(err)

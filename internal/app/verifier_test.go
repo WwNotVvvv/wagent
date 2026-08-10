@@ -8,7 +8,7 @@ import (
 
 func TestVerifierSuccess(t *testing.T) {
 	v := &Verifier{}
-	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "echo ok"}}}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: testCommandEcho("ok")}}
 	result := v.Verify(cfg)
 	if !result.Success {
 		t.Errorf("expected success, got exit_code=%d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
@@ -20,7 +20,7 @@ func TestVerifierSuccess(t *testing.T) {
 
 func TestVerifierFailure(t *testing.T) {
 	v := &Verifier{}
-	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "exit 1"}}}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: testCommandExit(1)}}
 	result := v.Verify(cfg)
 	if result.Success {
 		t.Error("expected failure")
@@ -38,9 +38,9 @@ func TestVerifierNoCommand(t *testing.T) {
 
 func TestVerifierStdoutCapture(t *testing.T) {
 	v := &Verifier{}
-	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "echo hello world"}}}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: testCommandEcho("hello world")}}
 	result := v.Verify(cfg)
-	if result.Stdout != "hello world\r\n" {
+	if strings.TrimSpace(result.Stdout) != "hello world" {
 		t.Errorf("expected 'hello world\\r\\n', got %q", result.Stdout)
 	}
 }
@@ -48,12 +48,12 @@ func TestVerifierStdoutCapture(t *testing.T) {
 func TestVerifierWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	v := &Verifier{}
-	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "cd"}, WorkDir: dir}}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: testCommandWorkingDirectory(), WorkDir: dir}}
 	result := v.Verify(cfg)
 	if !result.Success {
 		t.Errorf("expected success, got exit_code=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
-	if result.Stdout != dir+"\r\n" {
+	if strings.TrimSpace(result.Stdout) != strings.TrimSpace(dir) {
 		t.Errorf("expected work_dir %s in stdout, got %q", dir, result.Stdout)
 	}
 }
@@ -97,7 +97,7 @@ func TestVerifierRedactsOutput(t *testing.T) {
 	key := "sk-verifier-output-secret"
 	v := &Verifier{}
 	v.SetRedactFunc(func(s string) string { return RedactAPIKey(s, key) })
-	cfg := &Config{Agent: AgentConfig{VerifyCommand: []string{"cmd", "/c", "echo", key}}}
+	cfg := &Config{Agent: AgentConfig{VerifyCommand: testCommandEcho(key)}}
 	result := v.Verify(cfg)
 	if !result.Success {
 		t.Fatalf("expected verifier success, got exit_code=%d stderr=%s", result.ExitCode, result.Stderr)
