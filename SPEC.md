@@ -407,4 +407,4 @@ Verifier 子进程从当前环境继承必要变量，但显式移除 `WAGENT_AP
 
 ### 12.5 工具链与交付边界
 
-项目模块基线为 Go 1.23.0，CI 使用 Go 1.23，依赖版本与该基线兼容。项目采用 CLI-only 交付，使用 GoReleaser 构建 Windows、Linux、macOS 的 amd64/arm64 二进制并通过 GitHub Release 分发；根据教师确认，本项目不实现 WebUI 或线上部署服务。
+项目模块基线为 Go 1.23.0，CI 使用 Go 1.23，依赖版本与该基线兼容。项目采用 CLI-only 交付，使用 GoReleaser 构建 Windows、Linux、macOS 的 amd64/arm64 二进制并通过 GitHub Release 分发。
