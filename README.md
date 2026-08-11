@@ -29,6 +29,9 @@ wagent "add unit tests for user.go"
 By default, `wagent` looks for `wagent.toml` in the current directory, which should normally be the root of the Git project being edited. This file configures the LLM endpoint, step limits, verifier command, work directory, storage locations, and governance policies. Copy [`examples/wagent.toml`](examples/wagent.toml) as a starting point and adjust it for your project. If no local configuration exists, built-in defaults are used. A configuration in another location can be supplied explicitly with `--config`.
 
 ```bash
+# Generate a project configuration template (refuses to overwrite an existing file).
+wagent config init
+
 # Store an API key in the operating-system keychain.
 wagent key set
 
@@ -97,6 +100,8 @@ Configuration discovery follows this order:
 
 See [`examples/wagent.toml`](examples/wagent.toml) for a complete example. The configuration controls the LLM endpoint, step limits, verifier command, work directory, storage locations, command policy, path policy, and HITL timeout.
 
+For a new project, run `wagent config init` in the project root. It creates `wagent.toml` with the academy's OpenAI-compatible endpoint (`https://njusehub.info/v1`) and the `deepseek-v4-flash` model. The command refuses to overwrite an existing file; edit the `[llm]` section manually when a different provider, model, or endpoint is needed. Then run `wagent key set` to configure the API key separately.
+
 ## API-key security
 
 - `wagent key set` reads the key with hidden terminal input and stores it in the OS keychain.
@@ -116,6 +121,7 @@ See [`examples/wagent.toml`](examples/wagent.toml) for a complete example. The c
 | `wagent key set` | Store an API key in the OS keychain. |
 | `wagent key status` | Check key configuration without revealing it. |
 | `wagent key clear` | Remove the stored key. |
+| `wagent config init` | Create a `wagent.toml` template without overwriting an existing file. |
 
 ## Governance and auditability
 

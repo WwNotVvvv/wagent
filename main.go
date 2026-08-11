@@ -15,6 +15,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: wagent [flags] <task>\n")
 		fmt.Fprintf(os.Stderr, "       wagent --interactive [flags]\n")
 		fmt.Fprintf(os.Stderr, "       wagent key set|status|clear\n")
+		fmt.Fprintf(os.Stderr, "       wagent config init\n")
 		fmt.Fprintf(os.Stderr, "\nFlags:\n")
 		flag.PrintDefaults()
 	}
@@ -27,10 +28,16 @@ func main() {
 
 	colorEnabled := app.ColorMode(*colorFlag)
 
-	// Subcommand dispatch: key set/status/clear
-	if flag.NArg() > 0 && flag.Arg(0) == "key" {
-		handleKeyCommand(flag.Args()[1:])
-		return
+	// Subcommand dispatch: key set/status/clear and config init.
+	if flag.NArg() > 0 {
+		switch flag.Arg(0) {
+		case "key":
+			handleKeyCommand(flag.Args()[1:])
+			return
+		case "config":
+			handleConfigCommand(flag.Args()[1:])
+			return
+		}
 	}
 
 	// Main flow: run task
@@ -224,4 +231,18 @@ func handleKeyCommand(args []string) {
 		fmt.Fprintf(os.Stderr, "Unknown key subcommand: %s\n", args[0])
 		os.Exit(1)
 	}
+}
+
+func handleConfigCommand(args []string) {
+	if len(args) != 1 || args[0] != "init" {
+		fmt.Fprintf(os.Stderr, "Usage: wagent config init\n")
+		os.Exit(1)
+	}
+
+	const configPath = "wagent.toml"
+	if err := app.WriteConfigTemplate(configPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Created %s. Run 'wagent key set' to configure the API key.\n", configPath)
 }

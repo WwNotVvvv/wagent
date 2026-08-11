@@ -29,6 +29,9 @@ wagent "为 user.go 添加单元测试"
 默认情况下，`wagent` 会在当前目录查找 `wagent.toml`；这个目录通常应当是待操作 Git 项目的根目录。该文件用于配置 LLM 服务地址、步数限制、验证命令、工作目录、存储位置和治理策略。可以复制 [`examples/wagent.toml`](examples/wagent.toml) 作为配置起点，再根据项目需要修改。如果当前目录没有这个文件，wagent 会使用内置默认值；如果配置文件位于其他位置，可以通过 `--config` 显式指定。
 
 ```bash
+# 生成项目配置模板（已有文件时不会覆盖）。
+wagent config init
+
 # 将 API Key 保存到操作系统钥匙串。
 wagent key set
 
@@ -97,6 +100,8 @@ wagent/
 
 完整示例见 [`examples/wagent.toml`](examples/wagent.toml)。配置可以控制 LLM 端点、步数限制、验证命令、工作目录、存储位置、命令策略、路径策略和 HITL 超时时间。
 
+新项目可以在项目根目录运行 `wagent config init`。该命令会创建 `wagent.toml`，默认使用学院提供的 OpenAI 兼容接口（`https://njusehub.info/v1`）和 `deepseek-v4-flash` 模型；如果文件已存在则拒绝覆盖。需要使用其他供应商、模型或接口地址时，直接编辑 `[llm]` 配置段。API Key 仍应单独通过 `wagent key set` 设置。
+
 ## API Key 安全
 
 - `wagent key set` 使用隐藏输入读取 Key，并将其保存到操作系统钥匙串。
@@ -116,6 +121,7 @@ wagent/
 | `wagent key set` | 将 API Key 保存到操作系统钥匙串。 |
 | `wagent key status` | 检查 API Key 是否已配置，不显示明文。 |
 | `wagent key clear` | 删除已保存的 API Key。 |
+| `wagent config init` | 创建 `wagent.toml` 配置模板，已有文件时不会覆盖。 |
 
 ## 治理与审计
 
