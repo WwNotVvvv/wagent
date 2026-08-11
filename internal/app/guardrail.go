@@ -2,7 +2,10 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -54,24 +57,166 @@ func (g *Guardrail) checkPath(a Action, cfg *Config) GuardResult {
 	if !ok {
 		return GuardResult{Decision: "deny", Reason: "path not a string"}
 	}
-	absPath, err := filepath.Abs(pathStr)
+	absPath, err := absoluteGuardPath(pathStr)
 	if err != nil {
 		return GuardResult{Decision: "deny", Reason: fmt.Sprintf("cannot resolve path: %v", err)}
 	}
 
+	workDir := cfg.Agent.WorkDir
+	if workDir == "" {
+		workDir = "."
+	}
+	workDir, err = absoluteGuardPath(workDir)
+	if err != nil {
+		return GuardResult{Decision: "deny", Reason: fmt.Sprintf("cannot resolve work directory: %v", err)}
+	}
+
+	// Check the lexical path first so a path that does not exist yet is still
+	// constrained to the configured work directory.
+	if !pathWithin(workDir, absPath) {
+		return GuardResult{Decision: "deny", Reason: "path outside work directory"}
+	}
+
+	// Resolve existing path components to prevent a symlink inside workDir
+	// from reaching a file outside it. This also covers write_file paths whose
+	// final file does not exist but whose parent directory does.
+	resolvedWorkDir, err := resolveExistingPrefix(workDir)
+	if err != nil {
+		return GuardResult{Decision: "deny", Reason: fmt.Sprintf("cannot resolve work directory: %v", err)}
+	}
+	resolvedPath, err := resolveExistingPrefix(absPath)
+	if err != nil {
+		return GuardResult{Decision: "deny", Reason: fmt.Sprintf("cannot resolve path: %v", err)}
+	}
+	if !pathWithin(resolvedWorkDir, resolvedPath) {
+		return GuardResult{Decision: "deny", Reason: "path resolves outside work directory"}
+	}
+
 	for _, denied := range cfg.Policy.Paths.Deny {
-		denied = filepath.Clean(denied)
-		if strings.HasPrefix(absPath, denied) {
+		if matchesDeniedPath(absPath, denied) || matchesDeniedPath(resolvedPath, denied) {
 			return GuardResult{Decision: "deny", Reason: fmt.Sprintf("path denied: %s", denied)}
 		}
 	}
 
-	workDir, _ := filepath.Abs(cfg.Agent.WorkDir)
-	if !strings.HasPrefix(absPath, workDir) {
-		return GuardResult{Decision: "deny", Reason: "path outside work directory"}
+	return GuardResult{Decision: "allow", Reason: "path allowed"}
+}
+
+func absoluteGuardPath(path string) (string, error) {
+	path = expandHomePath(path)
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(absPath), nil
+}
+
+func expandHomePath(path string) string {
+	if path != "~" && !strings.HasPrefix(path, "~/") && !strings.HasPrefix(path, `~\`) {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	return filepath.Join(home, path[2:])
+}
+
+func pathWithin(root, candidate string) bool {
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+}
+
+func resolveExistingPrefix(path string) (string, error) {
+	path = filepath.Clean(path)
+	current := path
+	var suffix []string
+
+	for {
+		if _, err := os.Lstat(current); err == nil {
+			resolved, err := filepath.EvalSymlinks(current)
+			if err != nil {
+				return "", err
+			}
+			for _, part := range suffix {
+				resolved = filepath.Join(resolved, part)
+			}
+			return filepath.Clean(resolved), nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return path, nil
+		}
+		suffix = append([]string{filepath.Base(current)}, suffix...)
+		current = parent
+	}
+}
+
+func matchesDeniedPath(candidate, pattern string) bool {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return false
 	}
 
-	return GuardResult{Decision: "allow", Reason: "path allowed"}
+	if strings.ContainsAny(pattern, "*?") {
+		return matchPathGlob(candidate, pattern)
+	}
+
+	deniedPath, err := absoluteGuardPath(pattern)
+	if err != nil {
+		return false
+	}
+	return pathWithin(deniedPath, candidate)
+}
+
+func matchPathGlob(candidate, pattern string) bool {
+	candidate = normalizeMatchPath(candidate)
+	pattern = normalizeMatchPath(expandHomePath(pattern))
+
+	var expression strings.Builder
+	expression.WriteString("^")
+	for i := 0; i < len(pattern); {
+		switch {
+		case i+2 < len(pattern) && pattern[i:i+3] == "**/":
+			expression.WriteString(`(?:.*/)?`)
+			i += 3
+		case i+2 < len(pattern) && pattern[i:i+3] == "/**":
+			expression.WriteString(`(?:/.*)?`)
+			i += 3
+		case i+1 < len(pattern) && pattern[i:i+2] == "**":
+			expression.WriteString(`.*`)
+			i += 2
+		case pattern[i] == '*':
+			expression.WriteString(`[^/]*`)
+			i++
+		case pattern[i] == '?':
+			expression.WriteString(`[^/]`)
+			i++
+		default:
+			expression.WriteString(regexp.QuoteMeta(string(pattern[i])))
+			i++
+		}
+	}
+	expression.WriteString("$")
+
+	matched, err := regexp.MatchString(expression.String(), candidate)
+	return err == nil && matched
+}
+
+func normalizeMatchPath(path string) string {
+	path = filepath.ToSlash(filepath.Clean(path))
+	if runtime.GOOS == "windows" {
+		path = strings.ToLower(path)
+	}
+	return path
 }
 
 func toStringSlice(v any) []string {

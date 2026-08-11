@@ -50,6 +50,43 @@ Download the latest Windows, Linux, or macOS binary from the repository's [GitHu
 
 The binary is self-contained. No Go installation is required for end users. On Windows, run `wagent.exe`; on Linux and macOS, make the downloaded binary executable before running it.
 
+## Repository layout
+
+```text
+wagent/
+├── main.go                     CLI entry point and command-line options
+├── internal/app/               Agent loop, tools, guardrails, LLM, memory, and tests
+├── examples/wagent.toml        Example project configuration
+├── scripts/demo_mock.json      Offline governance demonstration script
+├── .github/workflows/go.yml    GitHub Actions test and vet workflow
+├── .gitlab-ci.yml              GitLab CI unit-test job
+├── .goreleaser.yaml            Cross-platform release configuration
+├── SPEC.md                     System specification
+├── PLAN.md                     Implementation plan
+├── AGENT_LOG.md                Development process log
+├── SPEC_PROCESS.md             Specification and decision process
+├── REFLECTION.md               Project reflection
+├── go.mod                      Go module and dependency versions
+└── go.sum                      Dependency checksums
+```
+
+The `internal/app` package contains the implementation and unit tests. The `examples` and `scripts` directories are supporting files for configuration and deterministic demonstrations; they are not required when using a downloaded release binary.
+
+## Dependencies and licenses
+
+The versions below are pinned in `go.mod`. License names refer to the license files distributed with the corresponding upstream Go modules.
+
+| Module | Version | License | Role |
+| --- | --- | --- | --- |
+| `github.com/BurntSushi/toml` | v1.6.0 | MIT | TOML configuration parsing |
+| `github.com/zalando/go-keyring` | v0.2.8 | MIT | Operating-system keychain access |
+| `golang.org/x/term` | v0.30.0 | BSD-3-Clause | Hidden terminal input and terminal detection |
+| `github.com/danieljoos/wincred` | v1.2.3 | MIT | Windows Credential Manager support (transitive) |
+| `github.com/godbus/dbus/v5` | v5.2.2 | BSD-2-Clause | Linux Secret Service support (transitive) |
+| `golang.org/x/sys` | v0.31.0 | BSD-3-Clause | Platform system-call support (transitive) |
+
+The project does not copy or modify these upstream libraries. Their respective license and copyright notices remain applicable when redistributing the binary. The repository currently has no separate project-level `LICENSE` file; the table above documents third-party dependency licensing only.
+
 ## Configuration
 
 Configuration discovery follows this order:
@@ -82,7 +119,7 @@ See [`examples/wagent.toml`](examples/wagent.toml) for a complete example. The c
 
 ## Governance and auditability
 
-- **Guardrail:** command `allow`/`ask`/`deny` rules and work-directory path checks.
+- **Guardrail:** command `allow`/`ask`/`deny` rules and path checks with normalized, component-aware work-directory boundaries. Tilde paths, recursive deny patterns, and existing symlink components are handled before file access.
 - **HITL:** `ask` actions pause for approval; rejection or timeout prevents execution.
 - **Verifier:** runs the configured argv-array verification command and feeds exit code, output, and timeout status back to the agent.
 - **Memory:** `take_note` and keyword-based `search_memory` use JSONL storage.

@@ -50,6 +50,43 @@ wagent --mock scripts/demo_mock.json "演示治理策略"
 
 二进制文件自包含，普通用户不需要安装 Go。Windows 下运行 `wagent.exe`；Linux 和 macOS 下运行前需要为下载的二进制文件添加可执行权限。
 
+## 仓库目录结构
+
+```text
+wagent/
+├── main.go                     CLI 入口和命令行选项
+├── internal/app/               Agent 循环、工具、护栏、LLM、记忆和测试
+├── examples/wagent.toml        示例项目配置
+├── scripts/demo_mock.json      离线治理演示脚本
+├── .github/workflows/go.yml    GitHub Actions 测试和 vet 工作流
+├── .gitlab-ci.yml              GitLab CI unit-test job
+├── .goreleaser.yaml            跨平台 Release 配置
+├── SPEC.md                     系统规约
+├── PLAN.md                     实现计划
+├── AGENT_LOG.md                开发过程日志
+├── SPEC_PROCESS.md             规约与决策过程
+├── REFLECTION.md               项目反思
+├── go.mod                      Go 模块和依赖版本
+└── go.sum                      依赖校验和
+```
+
+`internal/app` 包含主要实现和单元测试。`examples`、`scripts` 是配置和确定性演示所需的辅助文件；使用 Release 二进制运行 wagent 时不需要复制这些文件。
+
+## 依赖与许可证
+
+下面的版本固定在 `go.mod` 中。许可证名称对应各上游 Go 模块随包提供的许可证文件。
+
+| 模块 | 版本 | 许可证 | 用途 |
+| --- | --- | --- | --- |
+| `github.com/BurntSushi/toml` | v1.6.0 | MIT | TOML 配置解析 |
+| `github.com/zalando/go-keyring` | v0.2.8 | MIT | 操作系统钥匙串访问 |
+| `golang.org/x/term` | v0.30.0 | BSD-3-Clause | 隐藏终端输入和终端检测 |
+| `github.com/danieljoos/wincred` | v1.2.3 | MIT | Windows Credential Manager 支持（传递依赖） |
+| `github.com/godbus/dbus/v5` | v5.2.2 | BSD-2-Clause | Linux Secret Service 支持（传递依赖） |
+| `golang.org/x/sys` | v0.31.0 | BSD-3-Clause | 平台系统调用支持（传递依赖） |
+
+项目没有复制或修改这些上游库；重新分发二进制文件时，仍应遵守各依赖对应的许可证和版权声明。本仓库目前没有单独的项目级 `LICENSE` 文件；上表仅说明第三方依赖的许可证。
+
 ## 配置
 
 配置文件按以下顺序发现：
@@ -82,7 +119,7 @@ wagent --mock scripts/demo_mock.json "演示治理策略"
 
 ## 治理与审计
 
-- **Guardrail：**支持命令 `allow`/`ask`/`deny` 规则和工作目录路径检查。
+- **Guardrail：**支持命令 `allow`/`ask`/`deny` 规则，并对路径进行规范化和按路径组件的工作目录边界检查；文件访问前会处理 `~` 路径、递归 deny 模式和已有的符号链接组件。
 - **HITL：**遇到 `ask` 决策时暂停等待人工确认；拒绝或超时都会阻止动作执行。
 - **Verifier：**运行配置中的 argv 数组验证命令，并将退出码、输出和超时状态回灌给 agent。
 - **Memory：**通过 JSONL 存储 `take_note` 笔记，并支持基于关键词的 `search_memory`。

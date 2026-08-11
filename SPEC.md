@@ -85,7 +85,9 @@ while steps < max_steps and not done:
 **路径守卫**：覆盖所有文件操作工具及可识别的命令路径参数：
 - `deny` 路径列表 → 访问即拒绝
 - 超出 `work_dir` 范围 → 拒绝
-- 路径使用 `filepath.Clean` + `filepath.Abs` 规范化后做范围判断
+- 路径使用 `filepath.Clean` + `filepath.Abs` 规范化，并通过路径组件边界判断范围，避免 `project-sibling` 这类字符串前缀绕过
+- `~` 路径会展开为当前用户目录；包含 `*`/`?` 的 deny 模式支持路径匹配
+- 对路径中已有的符号链接组件解析真实目标，解析后超出 `work_dir` 的路径拒绝
 
 **HITL 状态机**：
 - `step_timeout` 和 `hitl.timeout` 取较早截止时间，任一超时均拒绝当前 action
